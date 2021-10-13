@@ -1470,3 +1470,65 @@ int GetSpellStatValue(uint32 spell_id, const char* stat_identifier, uint8 slot)
 
 	return 0;
 }
+
+bool IsRootSpell(int16 spell_id)
+{
+	if (IsEffectInSpell(spell_id, SE_Root))
+		return true;
+
+	return false;
+}
+bool IsSnareSpell(int16 spell_id)
+{
+
+	if (IsDetrimentalSpell(spell_id) && IsEffectInSpell(spell_id, SE_MovementSpeed))
+		return true;
+	
+	return false;
+}
+
+bool IsScentSpell(int16 spell_id)
+{
+
+	if(IsDetrimentalSpell(spell_id) && IsEffectInSpell(spell_id, SE_ResistFire) && IsEffectInSpell(spell_id, SE_ResistPoison) && IsEffectInSpell(spell_id, SE_ResistDisease))
+		return true;
+
+	return false;
+}
+
+bool IsWhirlSpell(int16 spell_id)
+{
+	
+	//Whirl till You Hurl, Dyn`s Dizzying Draught
+	if(spell_id == 303 || spell_id == 619 || spell_id == 899)
+		return true;
+
+	return false;
+}
+
+bool IsDamageShieldSpell(int16 spell_id)
+{
+	
+	if(IsEffectInSpell(spell_id, SE_DamageShield))
+		return true;
+
+	return false;
+}
+
+bool IsPureStunSpell(int16 spell_id)
+{
+	
+	int i, effect_count = 0;
+
+	if (!IsValidSpell(spell_id))
+		return false;
+
+	for (i = 0; i < EFFECT_COUNT; i++)
+		if (!IsBlankSpellEffect(spell_id, i))
+			effect_count++;
+
+	if (effect_count == 1 && IsEffectInSpell(spell_id, SE_Stun))
+		return true;
+
+	return false;
+}

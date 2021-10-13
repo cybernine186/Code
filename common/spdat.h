@@ -1508,4 +1508,10 @@ bool IsSpellUsableThisZoneType(uint16 spell_id, uint8 zone_type);
 const char *GetSpellName(uint16 spell_id);
 int GetSpellStatValue(uint32 spell_id, const char* stat_identifier, uint8 slot = 0);
 
+bool IsRootSpell(int16 spell_id);
+bool IsSnareSpell(int16 spell_id);
+bool IsScentSpell(int16 spell_id);
+bool IsWhirlSpell(int16 spell_id);
+bool IsDamageShieldSpell(int16 spell_id);
+bool IsPureStunSpell(int16 spell_id);
 #endif
