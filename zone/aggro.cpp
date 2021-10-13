@@ -647,6 +647,7 @@ type', in which case, the answer is yes.
 	}
 	while( reverse++ == 0 );
 
+	LogDebug("Mob::IsAttackAllowed: don't have a rule for this - [{}] vs [{}]\n", this->GetName(), target->GetName());
 	return false;
 }
 
@@ -775,6 +776,7 @@ bool Mob::IsBeneficialAllowed(Mob *target)
 	}
 	while( reverse++ == 0 );
 
+	LogDebug("Mob::IsBeneficialAllowed: don't have a rule for this - [{}] to [{}]\n", this->GetName(), target->GetName());
 	return false;
 }
 

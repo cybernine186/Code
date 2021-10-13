@@ -221,6 +221,7 @@ RULE_REAL(Pets, PetPowerLevelCap, 10, "Maximum number of levels a player pet can
 RULE_BOOL(Pets, CanTakeNoDrop, false, "Setting whether anyone can give no-drop items to pets")
 RULE_BOOL(Pets, IsLoSRequired, false, "Setting whether or not pets require los to attack")
 RULE_BOOL(Pets, LivelikeBreakCharmOnInvis, true, "Default: true will break charm on any type of invis (hide/ivu/iva/etc) false will only break if the pet can not see you (ex. you have an undead pet and cast IVU")
+RULE_BOOL(Pets, PVPSummonedPetTreatedAsOwnerForResists, true, "")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(GM)
@@ -245,7 +246,7 @@ RULE_INT(World, ExemptMaxClientsStatus, -1, "Exempt accounts from the MaxClients
 RULE_INT(World, AddMaxClientsPerIP, -1, "Maximum number of clients allowed to connect per IP address if account status is < ExemptMaxClientsStatus. Default value: -1 (feature disabled)")
 RULE_INT(World, AddMaxClientsStatus, -1, "Accounts with status >= this rule will be allowed to use the amount of accounts defined in the AddMaxClientsPerIP. Default value: -1 (feature disabled)")
 RULE_BOOL(World, MaxClientsSetByStatus, false, "If true, IP Limiting will be set to the status on the account as long as the status is > MaxClientsPerIP")
-RULE_BOOL(World, EnableIPExemptions, false, "If true, ip_exemptions table is used, if there is no entry for the IP it will default to RuleI(World, MaxClientsPerIP)")
+RULE_BOOL(World, EnableIPExemptions, false, "If true, ip_exemptions table is used, if there is no entry for the IP it will default to RULE_INT(World, MaxClientsPerIP)")
 RULE_BOOL(World, ClearTempMerchantlist, true, "Clears temp merchant items when world boots")
 RULE_BOOL(World, GMAccountIPList, false, "Check IP list against GM accounts. This increases the security of GM accounts, e.g. if you only allow localhost '127.0.0.1' for GM accounts. Think carefully about what you enter!")
 RULE_INT(World, MinGMAntiHackStatus, 1, "Minimum status to check against AntiHack list")
@@ -269,6 +270,7 @@ RULE_BOOL(World, StartZoneSameAsBindOnCreation, true, "Should the start zone alw
 RULE_BOOL(World, EnforceCharacterLimitAtLogin, false, "Enforce the limit for characters that are online at login")
 RULE_BOOL(World, EnableDevTools, true, "Enable or Disable the Developer Tools globally (Most of the time you want this enabled)")
 RULE_BOOL(World, EnableChecksumVerification, false, "Enable or Disable the Checksum Verification for eqgame.exe and spells_us.txt")
+RULE_BOOL(World, BoltOutdoorLOSCheck, false, "")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Zone)
@@ -403,6 +405,72 @@ RULE_BOOL(Spells, PreventFactionWarOnCharmBreak, false, "Enable spell interupts 
 RULE_BOOL(Spells, AllowDoubleInvis, false, "Allows you to cast invisibility spells on a player that is already invisible")
 RULE_BOOL(Spells, AllowSpellMemorizeFromItem, false, "Allows players to memorize spells by right-clicking spell scrolls")
 RULE_BOOL(Spells, InvisRequiresGroup, false, "Invis requires the the target to be in group.")
+RULE_INT(Spells, PVPRootMinResistRate, 10, "")    // Resist rate at 0MR, any level
+RULE_INT(Spells, PVPRootMaxResistRate, 95, "")    // Maximum resist rate, any level
+RULE_INT(Spells, PVPRootMinLevelResistThreshold, 60, "")    // MR needed to achieve resist rate softcap at level 10
+RULE_INT(Spells, PVPRootMaxLevelResistThreshold, 100, "")    // MR needed to achieve resist rate softcap at level 50
+RULE_INT(Spells, PVPRootResistRateSoftcap, 92, "")    // Resist rate achieved by meeting the threshold for level
+RULE_INT(Spells, PVPRootOverCapReturn, 50, "")        // Amount of MR needed over softcap threshold for each additional percent of resist rate (up to max, "")
+RULE_BOOL(Spells, ClickyCasting, true, "")
+RULE_BOOL(Spells, NoBeneficialDetrimentalBlock, true, "")
+RULE_INT(Spells, BuffDurationModifier, 1, "")
+
+RULE_INT(Spells, PVPBardMezResistRateSoftcap, 1, "")
+RULE_INT(Spells, PVPBardMezMinResistRate, 1, "")
+RULE_INT(Spells, PVPBardMezMinLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPBardMezMaxLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPBardMezOverCapReturn, 1, "")
+RULE_INT(Spells, PVPBardMezMaxResistRate, 1, "")
+
+RULE_INT(Spells, PVPMezResistRateSoftcap, 1, "")
+RULE_INT(Spells, PVPMezMinResistRate, 1, "")
+RULE_INT(Spells, PVPMezMinLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPMezMaxLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPMezOverCapReturn, 1, "")
+RULE_INT(Spells, PVPMezMaxResistRate, 1, "")
+
+RULE_INT(Spells, PVPSnareResistRateSoftcap, 1, "")
+RULE_INT(Spells, PVPSnareMinResistRate, 1, "")
+RULE_INT(Spells, PVPSnareMinLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPSnareMaxLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPSnareOverCapReturn, 1, "")
+RULE_INT(Spells, PVPSnareMaxResistRate, 1, "")
+
+RULE_INT(Spells, PVPPureStunResistRateSoftcap, 1, "")
+RULE_INT(Spells, PVPPureStunMinResistRate, 1, "")
+RULE_INT(Spells, PVPPureStunMinLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPPureStunMaxLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPPureStunOverCapReturn, 1, "")
+RULE_INT(Spells, PVPPureStunMaxResistRate, 1, "")
+
+RULE_INT(Spells, PVPBlindResistRateSoftcap, 1, "")
+RULE_INT(Spells, PVPBlindMinResistRate, 1, "")
+RULE_INT(Spells, PVPBlindMinLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPBlindMaxLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPBlindOverCapReturn, 1, "")
+RULE_INT(Spells, PVPBlindMaxResistRate, 1, "")
+
+RULE_INT(Spells, PVPResistDebuffResistRateSoftcap, 1, "")
+RULE_INT(Spells, PVPResistDebuffMinResistRate, 1, "")
+RULE_INT(Spells, PVPResistDebuffMinLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPResistDebuffMaxLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPResistDebuffOverCapReturn, 1, "")
+RULE_INT(Spells, PVPResistDebuffMaxResistRate, 1, "")
+
+RULE_INT(Spells, PVPSlowResistRateSoftcap, 1, "")
+RULE_INT(Spells, PVPSlowMinResistRate, 1, "")
+RULE_INT(Spells, PVPSlowMinLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPSlowMaxLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPSlowOverCapReturn, 1, "")
+RULE_INT(Spells, PVPSlowMaxResistRate, 1, "")
+
+RULE_INT(Spells, PVPPoisonResistRateSoftcap, 1, "")
+RULE_INT(Spells, PVPPoisonMinResistRate, 1, "")
+RULE_INT(Spells, PVPPoisonMinLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPPoisonMaxLevelResistThreshold, 1, "")
+RULE_INT(Spells, PVPPoisonOverCapReturn, 1, "")
+RULE_INT(Spells, PVPPoisonMaxResistRate, 1, "")
+
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Combat)
@@ -807,6 +875,20 @@ RULE_CATEGORY_END()
 
 RULE_CATEGORY(Command)
 RULE_BOOL(Command, DyeCommandRequiresDyes, false, "Enable this to require a Prismatic Dye (32557) each time someone uses #dye.")
+RULE_CATEGORY_END()
+
+RULE_CATEGORY(RoZ)
+RULE_BOOL(RoZ, NewPVPSpellResists, true, "")
+RULE_INT(RoZ, NewPVPSpellResistSplitThreshold, 100, "")
+RULE_INT(RoZ, NewPVPSpellResistSplitResistRate, 45, "")
+RULE_INT(RoZ, NewPVPSpellResistSoftcapThreshold, 255, "")
+RULE_INT(RoZ, NewPVPSpellResistSoftcapResistRate, 67, "")
+RULE_INT(RoZ, NewPVPSpellResistHardcapThreshold, 500, "")
+RULE_INT(RoZ, NewPVPSpellResistHardcapResistRate, 75, "")
+RULE_INT(RoZ, NewPVPSpellResistFullResistRollOffset, 50, "")
+RULE_INT(RoZ, NewPVPSpellResistDamageReductionVariance, 15, "")
+RULE_BOOL(RoZ, DoTPartials, true, "")
+RULE_BOOL(RoZ, PVPStunComponentSeparation, true, "")
 RULE_CATEGORY_END()
 
 #undef RULE_CATEGORY

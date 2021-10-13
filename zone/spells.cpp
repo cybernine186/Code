@@ -82,6 +82,7 @@ Copyright (C) 2001-2002 EQEMu Development Team (http://eqemu.org)
 #include "string_ids.h"
 #include "worldserver.h"
 #include "fastmath.h"
+#include "water_map.h"
 
 #include <assert.h>
 #include <math.h>
@@ -171,9 +172,9 @@ bool Mob::CastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		casting_spell_id ||
 		delaytimer ||
 		spellend_timer.Enabled() ||
-		IsStunned() ||
+		(IsStunned() && !IsDiscipline(spell_id)) ||
 		IsFeared() ||
-		IsMezzed() ||
+		(IsMezzed() && !IsDiscipline(spell_id)) ||
 		(IsSilenced() && !IsDiscipline(spell_id)) ||
 		(IsAmnesiad() && IsDiscipline(spell_id))
 	)
@@ -224,11 +225,68 @@ bool Mob::CastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 	if (spellbonuses.NegateIfCombat)
 		BuffFadeByEffect(SE_NegateIfCombat);
 
-	if (IsClient() && IsHarmonySpell(spell_id) && !HarmonySpellLevelCheck(spell_id, entity_list.GetMobID(target_id))) {
-		InterruptSpell(SPELL_NO_EFFECT, 0x121, spell_id);
-		return false;
+	if(IsClient() && GetTarget() && IsHarmonySpell(spell_id))
+	{
+		for(int i = 0; i < EFFECT_COUNT; i++) {
+			// not important to check limit on SE_Lull as it doesnt have one and if the other components won't land, then SE_Lull wont either
+			if (spells[spell_id].effectid[i] == SE_ChangeFrenzyRad || spells[spell_id].effectid[i] == SE_Harmony) {
+				if((spells[spell_id].max[i] != 0 && GetTarget()->GetLevel() > spells[spell_id].max[i]) || GetTarget()->GetSpecialAbility(IMMUNE_PACIFY)) {
+					InterruptSpell(CANNOT_AFFECT_NPC, 0x121, spell_id);
+					return(false);
+				}
+			}
+		}
 	}
+		
+	
+	SpellTargetType tt = spells[spell_id].targettype;
+	
+	if(GetTarget() != nullptr && GetTarget() != this && tt != ST_TargetOptional && tt != ST_GroupTeleport && tt != ST_AECaster && tt != ST_Self && tt != ST_AEBard && tt != ST_Group) {
+		float range = spells[spell_id].range + GetRangeDistTargetSizeMod(GetTarget());
+		//casting a spell on somebody but ourself, make sure they are in range
+		float dist2 = DistanceSquared(m_Position, GetTarget()->GetPosition());
+		float range2 = range * range;
+		float min_range2 = spells[spell_id].min_range * spells[spell_id].min_range;
+		if(dist2 > range2) {
+			//target is out of range.
+			LogSpells("Spell [{}]: Spell target is out of range (squared: [{}] > [{}])", spell_id, dist2, range2);
+			InterruptSpell(TARGET_OUT_OF_RANGE, 0x121, spell_id);
+			//MessageString(13, TARGET_OUT_OF_RANGE);
+			return(false);
+		}
+		else if (dist2 < min_range2){
+			//target is too close range.
+			LogSpells("Spell [{}]: Spell target is too close (squared: [{}] < [{}])", spell_id, dist2, min_range2);
+			InterruptSpell(TARGET_TOO_CLOSE, 0x121, spell_id);
+			//MessageString(13, TARGET_TOO_CLOSE);
+			return(false);
+		}
 
+		//spell_target->CalcSpellPowerDistanceMod(spell_id, dist2);
+	}
+	
+	// Voidd: TODO - if ((RuleB(World, BoltOutdoorLOSCheck) && CanCastOutdoor()) || !CanCastOutdoor())
+	if (RuleB(World, BoltOutdoorLOSCheck))
+	{
+		if(target_id && IsDetrimentalSpell(spell_id) && spells[spell_id].targettype == ST_TargetOptional && !CheckLosFN(GetTarget()))
+		{
+			//MessageString(13,CANT_SEE_TARGET);
+			InterruptSpell(CANT_SEE_TARGET, 0x121, spell_id);
+			return(false);
+		}
+	}
+	
+	
+	// Dispels and Manaburn require LOS
+	// Voidd: TODO - if (!CanCastOutdoor() && (IsEffectInSpell(spell_id, SE_CancelMagic) || IsEffectInSpell(spell_id, SE_DispelBeneficial) || spell_id == 2751) && !CheckLosFN(GetTarget()))
+	if ((IsEffectInSpell(spell_id, SE_CancelMagic) || IsEffectInSpell(spell_id, SE_DispelBeneficial) || spell_id == 2751) && !CheckLosFN(GetTarget()))
+	{
+		if (spell_id == 2751)
+			InterruptSpell(CANT_SEE_TARGET, 0x121, spell_id);
+		return(false);
+	}
+	
+	
 	if (HasActiveSong() && IsBardSong(spell_id)) {
 		LogSpells("Casting a new song while singing a song. Killing old song [{}]", bardsong);
 		//Note: this does NOT tell the client
@@ -305,13 +363,10 @@ bool Mob::CastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 	}
 
 	if(resist_adjust)
-	{
 		return(DoCastSpell(spell_id, target_id, slot, cast_time, mana_cost, oSpellWillFinish, item_slot, timer, timer_duration, *resist_adjust, aa_id));
-	}
 	else
-	{
 		return(DoCastSpell(spell_id, target_id, slot, cast_time, mana_cost, oSpellWillFinish, item_slot, timer, timer_duration, spells[spell_id].ResistDiff, aa_id));
-	}
+
 }
 
 //
@@ -386,6 +441,15 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		TryTriggerOnCastRequirement();
 		return(false);
 	}
+	
+	// Voidd: TODO - Add rule to limit spell slots per Era
+	int numslot = static_cast<int>(slot);
+	
+	if (numslot > 7 && numslot <= 11)
+	{
+		StopCasting();
+		return false;
+	}
 
 	SaveSpellLoc();
 	LogSpells("Casting [{}] Started at ({},{},{})", spell_id, m_SpellLocation.x, m_SpellLocation.y, m_SpellLocation.z);
@@ -398,7 +462,8 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		spell.targettype == ST_Self ||
 		spell.targettype == ST_AECaster ||
 		spell.targettype == ST_Ring ||
-		spell.targettype == ST_Beam) && target_id == 0)
+		spell.targettype == ST_Beam ||
+		spell.targettype == ST_TargetOptional) && target_id == 0)
 	{
 		LogSpells("Spell [{}] auto-targeted the caster. Group? [{}], target type [{}]", spell_id, IsGroupSpell(spell_id), spell.targettype);
 		target_id = GetID();
@@ -414,6 +479,11 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 	}
 	else
 		orgcasttime = cast_time;
+
+	if (slot == CastingSlot::Item && target_id == 0 && IsBeneficialSpell(spell_id))
+	{
+		target_id = GetID();
+	}
 
 	// we checked for spells not requiring targets above
 	if(target_id == 0) {
@@ -532,6 +602,7 @@ bool Mob::DoCastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 	if (IsClient() && slot == CastingSlot::Item && item_slot != 0xFFFFFFFF) {
 		auto item = CastToClient()->GetInv().GetItem(item_slot);
 		if (item && item->GetItem())
+			if(CastToClient()->GetFilter(FilterFocusEffects) != FilterHide)
 			MessageString(Chat::Spells, BEGINS_TO_GLOW, item->GetItem()->Name);
 	}
 
@@ -1014,17 +1085,10 @@ void Mob::CastedSpellFinished(uint16 spell_id, uint32 target_id, CastingSlot slo
 		InterruptSpell();
 		return;
 	}
+	
 	if(IsFeared()){ //cannot finish spells while feared.
 		InterruptSpell();
 		return;
-	}
-
-	if (IsDetrimentalSpell(spell_id) && spells[spell_id].range == 300) { //prevents bolt spells (300 range) from nuking the caster if the target zones or dies before spell finish.
-		target = entity_list.GetMob(target_id);
-		if (target == nullptr) {
-			InterruptSpell(spell_id);
-			return;
-		}
 	}
 
 	// prevent rapid recast - this can happen if somehow the spell gems
@@ -2169,6 +2233,15 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 			return false;
 		}
 	}
+	
+	// Bolts fail if no target (zoned, died, etc before spell could land)
+	if (!spell_target && spells[spell_id].spell_category == 13)
+		return false;
+	
+	// Voidd: TODO - What purpose does this serve?
+	SpellTargetType tt = spells[spell_id].targettype;
+	if (!spell_target && tt != ST_TargetOptional && tt != ST_GroupTeleport && tt != ST_AECaster && tt != ST_Self && tt != ST_AEBard && tt != ST_Group)
+		return false;
 
 	//determine the type of spell target we have
 	CastAction_type CastAction;
@@ -2200,11 +2273,30 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 		return false;
 	}
 
-	// check to see if target is a caster mob before performing a mana tap
-	if(spell_target && IsManaTapSpell(spell_id)) {
-		if(spell_target->GetCasterClass() == 'N') {
-			MessageString(Chat::Red, TARGET_NO_MANA);
-			return false;
+
+	if((IsClient() || (IsPet() && GetOwner()->IsClient())) && (spell_target && spell_target->IsClient() || (spell_target && spell_target->IsPet() && spell_target->GetOwner()->IsClient())))
+	{
+		//Water dance
+		if(!spells[spell_id].npc_no_los && spell_target && IsDetrimentalSpell(spell_id) && zone->HasWaterMap() && !IsHarmonySpell(spell_id)) {
+			if(zone && zone->watermap && zone->watermap->InLiquid(glm::vec3(spell_target->GetPosition())) && !zone->watermap->InLiquid(glm::vec3(GetPosition()))) {
+						LogSpells("Spell [{}]: cannot see target [{}]", spell_id, spell_target->GetName());
+						MessageString(13,CANT_SEE_TARGET);
+						return false;
+			}
+
+			if(zone && zone->watermap && !zone->watermap->InLiquid(glm::vec3(spell_target->GetPosition())) && zone->watermap->InLiquid(glm::vec3(GetPosition()))) {
+				LogSpells("Spell [{}]: cannot see target [{}]", spell_id, spell_target->GetName());
+				MessageString(13,CANT_SEE_TARGET);
+				return false;
+			}
+		}
+
+		// check to see if target is a caster mob before performing a mana tap
+		if(spell_target && IsManaTapSpell(spell_id)) {
+			if(spell_target->GetCasterClass() == 'N') {
+				MessageString(Chat::Red, TARGET_NO_MANA);
+				return false;
+			}
 		}
 	}
 
@@ -2290,11 +2382,12 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 				SpellOnTarget(spell_id, spell_target, false, true, resist_adjust, true, level_override);
 			} else {
 				if (spells[spell_id].targettype == ST_TargetOptional){
-					if (!TrySpellProjectile(spell_target, spell_id))
+					//if (!TrySpellProjectile(spell_target, spell_id))
+					if(!SpellOnTarget(spell_id, spell_target, false, true, resist_adjust, false, level_override))
 						return false;
 				}
 
-				else if(!SpellOnTarget(spell_id, spell_target, false, true, resist_adjust, false, level_override)) {
+				else if(!SpellOnTarget(spell_id, spell_target, false, true, resist_adjust, false, level_override, (slot == CastingSlot::Item ? true : false))) {
 					if(IsBuffSpell(spell_id) && IsBeneficialSpell(spell_id)) {
 						// Prevent mana usage/timers being set for beneficial buffs
 						if(casting_spell_aa_id)
@@ -2347,7 +2440,13 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 				if (spells[spell_id].targettype == ST_AETargetHateList)
 					hate_list.SpellCast(this, spell_id, spells[spell_id].aoerange, ae_center);
 				else
+				{
 					entity_list.AESpell(this, ae_center, spell_id, affect_caster, resist_adjust);
+					if (spells[spell_id].targettype == ST_AEBard)
+					{
+						entity_list.AEBardPulse(this, this, spell_id, false);
+					}
+				}
 			}
 			break;
 		}
@@ -2391,6 +2490,8 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 					if(target_group)
 					{
 						target_group->CastGroupSpell(this, spell_id);
+						if (!GetClass() == BARD)
+							SpellOnTarget(spell_id, this);
 					}
 				}
 				else if(spell_target->IsRaidGrouped() && spell_target->IsClient())
@@ -2458,6 +2559,8 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 		}
 	}
 
+	DoAnim(spells[spell_id].CastingAnim, 0, true, IsClient() ? FilterPCSpells : FilterNPCSpells);
+
 	// Set and send the nimbus effect if this spell has one
 	int NimbusEffect = GetNimbusEffect(spell_id);
 	if(NimbusEffect) {
@@ -2516,12 +2619,13 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 			int recast = spells[spell_id].recast_time/1000;
 			if (spell_id == SPELL_LAY_ON_HANDS)	//lay on hands
 			{
-				recast -= GetAA(aaFervrentBlessing) * 420;
+				recast -= GetAA(aaFervrentBlessing) * 720;
 			}
 			else if (spell_id == SPELL_HARM_TOUCH || spell_id == SPELL_HARM_TOUCH2)	//harm touch
 			{
-				recast -= GetAA(aaTouchoftheWicked) * 420;
+				recast -= GetAA(aaTouchoftheWicked) * 720;
 			}
+      
 			int reduction = CastToClient()->GetFocusEffect(focusReduceRecastTime, spell_id);//Client only
 			if(reduction)
 				recast -= reduction;
@@ -2547,10 +2651,19 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 			CastToClient()->QueuePacket(outapp);
 			safe_delete(outapp);
 		}
+		if (RuleB(Spells, ClickyCasting))
+			CastToClient()->MemorizeSpell(0, SPELLBAR_UNLOCK, memSpellSpellbar);
 	}
 
-	if(IsNPC())
+	// Voidd: TODO - Implement PCYellForHelp
+	//Rebel Yell
+    //    if (IsDetrimentalSpell(spell_id) && spell_target && spell_target->IsClient() && (spell_target != this)) {
+    //            spell_target->CastToClient()->PCYellForHelp(spell_target, this);
+     //   }
+
+	if(IsNPC()) {
 		CastToNPC()->AI_Event_SpellCastFinished(true, static_cast<uint16>(slot));
+  }
 
 	return true;
 }
@@ -3110,6 +3223,17 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 	// effect slot, otherwise they're stackable, even if it's the same effect
 	bool will_overwrite = false;
 	bool values_equal = true;
+
+	if(spells[spellid1].dot_stacking_exempt || spells[spellid2].dot_stacking_exempt) {
+		LogSpells("Exempt spell dot stacking exempt.");
+		return 0;
+	}
+	
+	// No Beneficial will block Detrimental
+	// and no Detrimental will block Beneficial
+	if (RuleB(Spells, NoBeneficialDetrimentalBlock) && ((IsDetrimentalSpell(spellid1) && IsBeneficialSpell(spellid2)) || (IsBeneficialSpell(spellid1) && IsDetrimentalSpell(spellid2))))
+		return 0;
+	
 	for(i = 0; i < EFFECT_COUNT; i++)
 	{
 		if(IsBlankSpellEffect(spellid1, i) || IsBlankSpellEffect(spellid2, i))
@@ -3280,11 +3404,27 @@ bool Mob::HasDiscBuff()
 	return buffs[slot].spellid != SPELL_UNKNOWN;
 }
 
+int Mob::GetFirstEmptyBuffSlot()
+{
+	int buffslot;
+	int buff_count = GetMaxTotalSlots();
+	
+	for (buffslot = 0; buffslot < buff_count; buffslot++)
+	{
+		const Buffs_Struct &curbuf = buffs[buffslot];
+		if (curbuf.spellid == SPELL_UNKNOWN)
+		{
+			return buffslot;
+		}
+	}
+	return -1;
+}
+
 // returns the slot the buff was added to, -1 if it wasn't added due to
 // stacking problems, and -2 if this is not a buff
 // if caster is null, the buff will be added with the caster level being
 // the level of the mob
-int Mob::AddBuff(Mob *caster, uint16 spell_id, int duration, int32 level_override)
+int Mob::AddBuff(Mob *caster, uint16 spell_id, int duration, int32 level_override, uint32 partial)
 {
 
 	int buffslot, ret, caster_level, emptyslot = -1;
@@ -3307,6 +3447,12 @@ int Mob::AddBuff(Mob *caster, uint16 spell_id, int duration, int32 level_overrid
 		LogSpells("Buff [{}] failed to add because its duration came back as 0", spell_id);
 		return -2;	// no duration? this isn't a buff
 	}
+	
+	if (IsDetrimentalSpell(spell_id) && spells[spell_id].pvp_duration_cap > 0 && IsClient() && caster->IsClient())
+		duration = spells[spell_id].pvp_duration_cap;
+	
+	if (IsBeneficialSpell(spell_id) && !IsBardSong(spell_id) && spell_id != 220 && spell_id != 278 && !IsInvulnerabilitySpell(spell_id) && !IsHasteSpell(spell_id) && spell_id != 1776 && spell_id != 8457 && spell_id != 8651 && spell_id != 169 && !IsDamageShieldSpell(spell_id))
+		duration = duration * RuleI(Spells, BuffDurationModifier) / 100;
 
 	LogSpells("Trying to add buff [{}] cast by [{}] (cast level [{}]) with duration [{}]",
 		spell_id, caster?caster->GetName():"UNKNOWN", caster_level, duration);
@@ -3340,7 +3486,10 @@ int Mob::AddBuff(Mob *caster, uint16 spell_id, int duration, int32 level_overrid
 						spell_id, curbuf.spellid, buffslot, curbuf.casterlevel);
 				// If this is the first buff it would override, use its slot
 				if (!will_overwrite && !IsDisciplineBuff(spell_id))
-					emptyslot = buffslot;
+				{
+					//emptyslot = buffslot;
+					emptyslot = GetFirstEmptyBuffSlot();
+				}
 				will_overwrite = true;
 				overwrite_slots.push_back(buffslot);
 			}
@@ -3527,7 +3676,7 @@ int Mob::CanBuffStack(uint16 spellid, uint8 caster_level, bool iFailIfOverwrite)
 // break stuff
 //
 bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_resist_adjust, int16 resist_adjust,
-			bool isproc, int level_override)
+			bool isproc, int level_override, bool isclicky)
 {
 
 	bool is_damage_or_lifetap_spell = IsDamageSpell(spell_id) || IsLifetapSpell(spell_id);
@@ -3602,11 +3751,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 	}
 
 	// select target
-	if	// Bind Sight line of spells
-	(
-		spell_id == 500 ||	// bind sight
-		spell_id == 407		// cast sight
-	)
+	if (IsEffectInSpell(spell_id, SE_BindSight))
 	{
 		action->target = GetID();
 	}
@@ -3851,6 +3996,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 			return false;
 		}
 	}
+
 	//Need this to account for special AOE cases.
 	if (IsClient() && IsHarmonySpell(spell_id) && !HarmonySpellLevelCheck(spell_id, spelltar)) {
 		MessageString(Chat::SpellFailure, SPELL_NO_EFFECT);
@@ -3873,6 +4019,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 			}
 		}
 	}
+
 	// Reflect
 	if(spelltar && spelltar->TryReflectSpell(spell_id) && !reflect && IsDetrimentalSpell(spell_id) && this != spelltar) {
 		int reflect_chance = 0;
@@ -3944,9 +4091,12 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 	// not all unresistable, so changing this to only check certain spells
 	if(IsResistableSpell(spell_id))
 	{
-		spelltar->BreakInvisibleSpells(); //Any detrimental spell cast on you will drop invisible (can be AOE, non damage ect).
+		if (spells[spell_id].spell_category != 98) // but no lull
+			spelltar->BreakInvisibleSpells(); //Any detrimental spell cast on you will drop invisible (can be AOE, non damage ect).
 
-		if (IsCharmSpell(spell_id) || IsMezSpell(spell_id) || IsFearSpell(spell_id))
+		if (IsCharmSpell(spell_id))
+			spell_effectiveness = spelltar->CheckResistSpell(spells[spell_id].resisttype, spell_id, this, spelltar, use_resist_adjust, resist_adjust, true, false, false);
+		else if(IsMezSpell(spell_id) || IsFearSpell(spell_id))
 			spell_effectiveness = spelltar->ResistSpell(spells[spell_id].resisttype, spell_id, this, use_resist_adjust, resist_adjust, true, false, false, level_override);
 		else
 			spell_effectiveness = spelltar->ResistSpell(spells[spell_id].resisttype, spell_id, this, use_resist_adjust, resist_adjust, false, false, false, level_override);
@@ -3993,8 +4143,8 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 		}
 
 		if (spelltar->IsClient()){
-			spelltar->CastToClient()->BreakSneakWhenCastOn(this, false);
-			spelltar->CastToClient()->BreakFeignDeathWhenCastOn(false);
+			spelltar->CastToClient()->BreakSneakWhenCastOn(this, true);
+			spelltar->CastToClient()->BreakFeignDeathWhenCastOn(true);
 		}
 	}
 	else
@@ -4018,9 +4168,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 	} else if (IsBeneficialSpell(spell_id) && !IsSummonPCSpell(spell_id)) {
 		if (this != spelltar && spelltar->IsClient() && IsClient())
 			CastToClient()->UpdateRestTimer(spelltar->CastToClient()->GetRestTimer());
-		entity_list.AddHealAggro(
-		    spelltar, this,
-		    CheckHealAggroAmount(spell_id, spelltar, (spelltar->GetMaxHP() - spelltar->GetHP())));
+		entity_list.AddHealAggro(spelltar, this, CheckHealAggroAmount(spell_id, spelltar, (spelltar->GetMaxHP() - spelltar->GetHP())));
 	}
 
 	// make sure spelltar is high enough level for the buff
@@ -4050,7 +4198,15 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, bool reflect, bool use_r
 		spelltar->CastSpellOnLand(this, spell_id);
 
 	if (IsValidSpell(spells[spell_id].RecourseLink) && spells[spell_id].RecourseLink != spell_id)
-		SpellFinished(spells[spell_id].RecourseLink, this, CastingSlot::Item, 0, -1, spells[spells[spell_id].RecourseLink].ResistDiff);
+	{
+		if(IsManaTapSpell(spell_id))
+		{
+			if (spelltar->GetCasterClass() != 'N')
+				SpellFinished(spells[spell_id].RecourseLink, this, CastingSlot::Item, 0, -1, spells[spells[spell_id].RecourseLink].ResistDiff);
+		}
+		else
+			SpellFinished(spells[spell_id].RecourseLink, this, CastingSlot::Item, 0, -1, spells[spells[spell_id].RecourseLink].ResistDiff);
+	}
 
 	if (IsDetrimentalSpell(spell_id)) {
 
@@ -4402,7 +4558,8 @@ bool Mob::IsImmuneToSpell(uint16 spell_id, Mob *caster)
 		assert(effect_index >= 0);
 		// NPCs get to ignore the max level
 		if((GetLevel() > spells[spell_id].max[effect_index]) &&
-			(!caster->IsNPC() || (caster->IsNPC() && !RuleB(Spells, NPCIgnoreBaseImmunity))))
+			(!caster->IsNPC() || (caster->IsNPC() && !RuleB(Spells, NPCIgnoreBaseImmunity))) &&
+			!((IsClient() || (IsPet() && GetOwner()->IsClient())) && (caster->IsClient() || (caster->IsPet() && caster->GetOwner()->IsClient()))))
 		{
 			LogSpells("Our level ([{}]) is higher than the limit of this Mez spell ([{}])", GetLevel(), spells[spell_id].max[effect_index]);
 			caster->MessageString(Chat::SpellFailure, CANNOT_MEZ_WITH_SPELL);
@@ -4578,6 +4735,443 @@ int Mob::GetResist(uint8 resist_type)
 	}
 }
 
+float Mob::CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob *target, bool use_resist_override, int resist_override, bool CharismaCheck, bool CharmTick, bool IsRoot)
+{
+
+	if (!caster)
+	{
+		return 100;
+	}
+
+	if (spell_id != 0 && !IsValidSpell(spell_id))
+	{
+		return 0;
+	}
+
+	if (GetSpecialAbility(IMMUNE_MAGIC))
+	{
+		LogSpells("We are immune to magic, so we fully resist the spell [{}]", spell_id);
+		return(0);
+	}
+
+	//Get resist modifier and adjust it based on focus 2 resist about eq to 1% resist chance
+	int resist_modifier = (use_resist_override) ? resist_override : spells[spell_id].ResistDiff;
+
+	//Check for fear resist
+	bool IsFear = false;
+	if (IsFearSpell(spell_id))
+	{
+		IsFear = true;
+		int fear_resist_bonuses = CalcFearResistChance();
+		if (zone->random.Roll(fear_resist_bonuses))
+		{
+			LogSpells("Resisted spell in fear resistance, had [{}] chance to resist", fear_resist_bonuses);
+			return 0;
+		}
+	}
+
+	if (!CharmTick) {
+
+		// Check for Chance to Resist Spell bonuses (ie Sanctification Discipline)
+		int resist_bonuses = CalcResistChanceBonus();
+		if (resist_bonuses && zone->random.Roll(resist_bonuses))
+		{
+			LogSpells("Resisted spell in sanctification, had [{}] chance to resist", resist_bonuses);
+			return 0;
+		}
+	}
+
+	//Get the resist chance for the target
+	if (resist_type == RESIST_NONE)
+	{
+		LogSpells("Spell was unresistable");
+		return 100;
+	}
+
+	if (GetSpecialAbility(IMMUNE_CASTING_FROM_RANGE))
+	{
+		if (!caster->CombatRange(this))
+		{
+			return(0);
+		}
+	}
+
+	Mob* SummonedPet = GetOwner() && !IsCharmed() && caster->IsNPC() ? GetOwner() : nullptr;
+
+	int fire = SummonedPet ? SummonedPet->GetFR() : GetFR();
+	int cold = SummonedPet ? SummonedPet->GetCR() : GetCR();
+	int magic = SummonedPet ? SummonedPet->GetMR() : GetMR();
+	int disease = SummonedPet ? SummonedPet->GetDR() : GetDR();
+	int poison = SummonedPet ? SummonedPet->GetPR() : GetPR();
+
+	int target_resist;
+	switch (resist_type)
+	{
+	case RESIST_FIRE:
+		target_resist = fire;
+		break;
+	case RESIST_COLD:
+		target_resist = cold;
+		break;
+	case RESIST_MAGIC:
+		target_resist = magic;
+		break;
+	case RESIST_DISEASE:
+		target_resist = disease;
+		break;
+	case RESIST_POISON:
+		target_resist = poison;
+		break;
+	default:
+		target_resist = 0;
+		break;
+	}
+
+	//Setup our base resist chance.
+	int caster_level = caster->GetLevel();
+	int target_level = SummonedPet ? SummonedPet->GetLevel() : GetLevel();
+	int resist_chance = 0;
+	int level_mod = 0;
+
+	if (SummonedPet)
+	{
+		LogSpells("CheckResistSpell(): Pet [{}] is using level: [{}] target_resist: [{}] (MR: [{}] FR: [{}] CR: [{}] DR: [{}] PR: [{}]) Against spell [{}] cast by [{}]", GetName(), target_level, target_resist, magic, fire, cold, disease, poison, spell_id, caster->GetName());
+	}
+
+	//Adjust our resist chance based on level modifiers
+	int leveldiff = target_level - caster_level;
+	int temp_level_diff = leveldiff;
+
+	if (IsNPC() && target_level >= RuleI(Casting, ResistFalloff))
+	{
+		int a = (RuleI(Casting, ResistFalloff) - 1) - caster_level;
+		if (a > 0)
+		{
+			temp_level_diff = a;
+		}
+		else
+		{
+			temp_level_diff = 0;
+		}
+	}
+
+	if (IsClient() && target_level >= 21 && temp_level_diff > 15)
+	{
+		temp_level_diff = 15;
+	}
+
+	if (IsNPC() && temp_level_diff < -9)
+	{
+		temp_level_diff = -9;
+	}
+
+	level_mod = temp_level_diff * temp_level_diff / 2;
+	if (temp_level_diff < 0)
+	{
+		level_mod = -level_mod;
+	}
+
+	// set resist modifiers for targets well above caster's level
+	// this is a crude approximation of Sony's convoluted function
+	// it's far from precise but way better than nothing
+	if (IsNPC())
+	{
+		if (caster_level < 50)
+		{
+			// after a certain level above the caster, NPCs gain a significant resist bonus
+			// how many levels above the caster and how large the bonus is both increase with caster level
+			// It's not a flat 1000 resist mod as Sony's pseudocode stated.  Many parses were done to prove this
+			int bump_level = caster_level + 4 + caster_level / 6;
+			if (target_level >= bump_level)
+				level_mod += 70 + caster_level * 6;
+		}
+		else
+		{
+			if (caster_level < 64)
+			{
+				if (leveldiff >= 13)
+					level_mod = caster_level * 5;
+			}
+			else
+			{
+				// note: if you use this for expacs beyond PoP, you may need to expand this
+				if (leveldiff >= 16)
+					level_mod = caster_level * 5;
+			}
+		}
+	}
+
+	//Even more level stuff this time dealing with damage spells
+	if (IsNPC() && IsDamageSpell(spell_id))
+	{
+		if (target_level >= RuleI(Casting, ResistFalloff))
+		{
+			temp_level_diff = (RuleI(Casting, ResistFalloff) - 1) - caster_level;
+			if (temp_level_diff < 0)
+			{
+				temp_level_diff = 0;
+			}
+		}
+		else
+		{
+			temp_level_diff = target_level - caster_level;
+		}
+
+		if (temp_level_diff > 0 && target_level >= 17)
+		{
+			level_mod += (2 * temp_level_diff);
+		}
+	}
+
+	if (CharismaCheck)
+	{
+		/*
+		From niente, Daybreak dev: (https://forums.daybreakgames.com/eq/index.php?threads/importance-of-charisma.220085/#post-3678593)
+		CHA currently affects:
+
+		how much merchants will charge you
+		bard fizzle chance
+		Chance of an NPC aggro'ing you when you cast pacify
+		Chance for SPA 63 to successfully blur your target
+		Chance for DI spells to heal for their full amount
+		Chance for SPA 22(charm), 31(mez), 34(confuse), 63(blur) to be resisted, you hit this cap at 200 CHA
+		Note SPA 3(movement rate?), 20(blind), 22(charm), 99(root) have a minimum 5% chance of breaking every tick regardless of how much CHA you have. (only 22 gets a CHA bonus)
+
+		Edit: If you have 342 or greater CHA you have capped your bonus chance to all of the above.
+
+		--------------------------------------------------------
+
+		Inherited comments from EQEmu: (Kayen I assume)
+		Charisma ONLY effects the initial resist check when charm is cast with 10 CHA = -1 Resist mod up to 255 CHA (min ~ 75 cha)
+		Charisma less than ~ 75 gives a postive modifier to resist checks at approximate ratio of -10 CHA = +6 Resist.
+		Mez spells do same initial resist check as a above.
+		Lull spells only check charisma if inital cast is resisted to see if mob will aggro, same modifier/cap as above.
+		Charisma DOES NOT extend charm durations.
+		Fear resist chance is given a -20 resist modifier if CHA is < 100, from 100-255 it progressively reduces the negative mod to 0.
+		Fears verse undead DO NOT apply a charisma modifer. (Note: unknown Base1 values defined in undead fears do not effect duration).
+
+		--------------------------------------------------------
+
+		Torven: As far as I can tell, fear is not modified by CHA and the recent dev post makes no mention of CHA, so I removed it.
+		I did not verify the logic here that modifies charm and mez resist chance, so I can't say if it's correct or not.
+		Dev post also disagrees with Kayen on CHA cap and charm not affecting charm ticks.
+		*/
+		int16 charisma = caster->GetCHA();
+
+		if (!IsFear)
+		{
+			if (charisma >= 75)
+			{
+				if (charisma > RuleI(Spells, CharismaEffectivenessCap))
+					charisma = RuleI(Spells, CharismaEffectivenessCap);
+
+				resist_modifier -= (charisma - 75) / RuleI(Spells, CharismaEffectiveness);
+			}
+			else
+				resist_modifier += ((75 - charisma) / 10) * 6; //Increase Resist Chance
+
+			if (!caster->IsNPC() && (IsHarmonySpell(spell_id) || IsCharmSpell(spell_id)))
+			{
+				// make yellows and reds resist more often
+				if (leveldiff >= 1)
+				{
+					resist_modifier += 20 * (leveldiff + leveldiff);
+				}
+			}
+			LogSpells("CheckResistSpell(): Spell: [{}]  Charisma check. resist_modifier is: [{}]", spell_id, resist_modifier);
+		}
+	}
+
+	//Lull spells DO NOT use regular resists on initial cast, instead they use a flat +15 modifier. Live parses confirm this.
+	//Regular resists are used when checking if mob will aggro off of a lull resist.
+	if (!CharismaCheck && IsHarmonySpell(spell_id))
+	{
+		// make yellows and reds resist more often
+		if (leveldiff >= 1)
+		{
+			resist_modifier += 20 * (leveldiff + leveldiff);
+		}
+
+		target_resist = 15;				// first lull resist check uses 15 MR before mods, not target's actual MR
+
+		LogSpells("CheckResistSpell(): Spell: [{}]  No Charisma check. target_resist is: [{}] resist_modifier is: [{}]", spell_id, target_resist, resist_modifier);
+	}
+
+	//Add our level, resist and -spell resist modifier to our roll chance
+	resist_chance += level_mod;
+	resist_chance += resist_modifier;
+	resist_chance += target_resist;
+
+	if (CharmTick)
+	{
+		if (resist_chance < 12)		// a value of 12 for this rule seems to fit AK log data well
+			resist_chance = 12;
+			
+// ADDED TEMPORARILY UNTIL BALANCE
+
+		// dragon charm full duration for now
+		if (spell_id == 841)
+			return 100;
+		
+		uint32 buffduration = spells[spell_id].buffduration;
+		uint32 levelbuffduration = 0;
+		
+		if(spells[spell_id].buffdurationformula == 10)
+			levelbuffduration = caster->GetLevel() * 3 + 10;
+		else if(spells[spell_id].buffdurationformula == 3)
+			levelbuffduration = caster->GetLevel() * 30;
+		
+		if(levelbuffduration < buffduration)
+			buffduration = levelbuffduration;
+		
+		float chamod;
+		uint32 cha = caster->GetCHA();
+		uint32 expected_cha = GetLevel() * 5;
+		if(caster->GetClass() == 6 || caster->GetClass() == 11)
+		{
+			float chabonusmult = static_cast<float>(caster->GetLevel()) / 60;
+			cha += static_cast<int>(30 * chabonusmult);
+		}
+		chamod = static_cast<float>(cha) / static_cast<float>(expected_cha);
+		
+		if(chamod > 1.0)
+			chamod = 1.0;
+		
+		buffduration = static_cast<int>(static_cast<float>(buffduration) * chamod);
+		
+		uint32 ideal_level = caster->GetLevel() * 4 / 5;
+		
+		uint32 moblevel = GetLevel();
+		
+		float levelmod = static_cast<float>(moblevel) / static_cast<float>(ideal_level);
+		
+		if(moblevel > ideal_level)
+			levelmod = levelmod * levelmod * levelmod;
+		
+		buffduration = static_cast<int>(static_cast<float>(buffduration) / levelmod * 0.95);
+		
+		int32 mobmr = GetMR();
+		
+		if (mobmr <= -80)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.50);			
+		else if (mobmr <= -70)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.45);
+		else if (mobmr <= -60)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.40);
+		else if (mobmr <= -50)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.35);
+		else if (mobmr <= -40)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.30);
+		else if (mobmr <= -30)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.25);
+		else if (mobmr <= -20)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.20);
+		else if (mobmr <= -10)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.15);
+		else if (mobmr <= 0)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.10);
+		else if (mobmr <= 10)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.05);
+
+		uint32 roll = zone->random.Int(1, buffduration);
+		
+		LogSpells("[{}] rolled [{}] out of [{}] - need 3 to pass - Cha: [{}] - IdealCha: [{}] - MobLevel: [{}]", caster->GetName(), roll, buffduration, cha, expected_cha, moblevel);		
+		if(roll > 2)
+			return 100;
+		else
+			return 0;
+	}
+
+	if (IsRoot)
+	{
+		if (resist_chance < 5)
+			resist_chance = 5;
+	}
+
+	// NPCs use special rules for rain spells in our era.
+	if (IsNPC() && IsAERainNukeSpell(spell_id))
+	{
+		//20% innate resist
+		if (resist_chance < 0)
+			resist_chance = 40;
+		else
+			resist_chance += 40;
+		uint8 hp_percent = (uint8)((float)GetHP() / (float)GetMaxHP() * 100.0f);
+		if (target_level > 20 && hp_percent < 10)
+		{
+			return 0;
+		}
+	}
+
+	// PvP
+	if (caster->IsClient() && target && target->IsClient())
+	{
+		if (resist_chance > 1 && resist_chance < 200)
+		{
+			resist_chance = resist_chance * 400 / (200 + resist_chance);		// this changes the curve from linear to the bow shape seen in parses
+		}
+		if (resist_chance > 196)
+		{
+			resist_chance = 196;		// minimum 2% chance for spells to land
+		}
+	}
+
+	//Finally our roll
+	int roll = zone->random.Int(0, 200);
+	LogSpells("CheckResistSpell(): Spell: [{}] roll [{}] > resist_chance [{}]", spell_id, roll, resist_chance);	if (roll >= resist_chance)
+	{
+		return 100;
+	}
+	else
+	{
+		if (!IsPartialCapableSpell(spell_id))
+		{
+			return 0;
+		}
+		else
+		{
+			int partial_modifier = ((150 * (resist_chance - roll)) / resist_chance);
+
+			if (IsNPC())
+			{
+				if (target_level > caster_level && target_level >= 17 && caster_level <= 50)
+				{
+					partial_modifier += 5;
+				}
+
+				if (target_level >= 30 && caster_level < 50)
+				{
+					partial_modifier += (caster_level - 25);
+				}
+
+				if (target_level < 15)
+				{
+					partial_modifier -= 5;
+				}
+			}
+
+			if (caster->IsNPC())
+			{
+				if ((target_level - caster_level) >= 20)
+				{
+					partial_modifier += (int)((target_level - caster_level) * 1.5);
+				}
+			}
+
+			if (partial_modifier <= 0)
+			{
+				return 100;
+			}
+			else if (partial_modifier >= 100)
+			{
+				return 0;
+			}
+
+			return (100.0f - partial_modifier);
+		}
+	}
+}
+
 //
 // Spell resists:
 // returns an effectiveness index from 0 to 100. for most spells, 100 means
@@ -4589,6 +5183,9 @@ int Mob::GetResist(uint8 resist_type)
 // pvp_resist_cap
 float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use_resist_override, int resist_override, bool CharismaCheck, bool CharmTick, bool IsRoot, int level_override)
 {
+	int target_level, resist, deviance;
+	float fullchance, resistchance, resistrate;
+	float partialmod = 0;
 
 	if(!caster)
 	{
@@ -4599,6 +5196,8 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 	{
 		return 0;
 	}
+	
+	LogSpells("ResistSpell() - Resist Type: [{}], Spell ID: [{}], Use Resist Override: [{}], Resist Override: [{}], Charisma Check: [{}], Charm Tick: [{}], Is Root: [{}], Level Override: [{}]", resist_type, spell_id, use_resist_override, resist_override, CharismaCheck, CharmTick, IsRoot, level_override);
 
 	if(GetSpecialAbility(IMMUNE_CASTING_FROM_RANGE))
 	{
@@ -4685,76 +5284,116 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 		auto owner = GetOwner();
 		if (owner != nullptr) {
 			target_resist = std::max(target_resist, owner->GetResist(resist_type));
-			level = owner->GetLevel();
+			target_level = owner->GetLevel();
 		}
 	}
+
+	//Determine if target is a non-charmed pet and caster is a player
+	bool is_summoned_pet_and_should_be_treated_as_player = RuleB(Pets, PVPSummonedPetTreatedAsOwnerForResists) 
+		&& this->IsPet() 
+		&& !this->IsCharmed() 
+		&& this->GetOwner()->IsClient() 
+		&& caster->IsClient();
 
 	//Setup our base resist chance.
 	int resist_chance = 0;
 	int level_mod = 0;
+	int slc_mod = 0;
 
 	//Adjust our resist chance based on level modifiers
-	uint8 caster_level = level_override > 0 ? level_override : caster->GetLevel();
-	int temp_level_diff = level - caster_level;
+	int caster_level = caster->GetLevel();
+	
+	if (is_summoned_pet_and_should_be_treated_as_player) {
+		target_level = this->GetOwner()->GetLevel();
+	}
+	int leveldiff = target_level - caster_level;
+	int temp_level_diff = leveldiff;
+
+	if (IsNPC() && target_level >= RuleI(Casting, ResistFalloff))
+	{
+		int a = (RuleI(Casting, ResistFalloff) - 1) - caster_level;
+		if (a > 0)
+		{
+			temp_level_diff = a;
+		}
+		else
+		{
+			temp_level_diff = 0;
+		}
+	}
+
+	if (IsClient() && target_level >= 21 && temp_level_diff > 15)
+	{
+		temp_level_diff = 15;
+	}
+
+	if (IsNPC() && temp_level_diff < -9)
+	{
+		temp_level_diff = -9;
+	}
+
+	level_mod = temp_level_diff * temp_level_diff / 2;
+	if (temp_level_diff < 0)
+	{
+		level_mod = -level_mod;
+	}
+	
+	// set resist modifiers for targets well above caster's level
+	// this is a crude approximation of Sony's convoluted function
+	// it's far from precise but way better than nothing
+	if (IsNPC())
+	{
+		if (caster_level < 50)
+		{
+			// after a certain level above the caster, NPCs gain a significant resist bonus
+			// how many levels above the caster and how large the bonus is both increase with caster level
+			// It's not a flat 1000 resist mod as Sony's pseudocode stated.  Many parses were done to prove this
+			int bump_level = caster_level + 4 + caster_level / 6;
+			if (target_level >= bump_level)
+				level_mod += 70 + caster_level * 6;
+		}
+		else
+		{
+			if (caster_level < 64)
+			{
+				if (leveldiff >= 13)
+					level_mod = caster_level * 5;
+			}
+			else
+			{
+				// note: if you use this for expacs beyond PoP, you may need to expand this
+				if (leveldiff >= 16)
+					level_mod = caster_level * 5;
+			}
+		}
+	}
 
 	//Physical Resists are calclated using their own formula derived from extensive parsing.
 	if (resist_type == RESIST_PHYSICAL) {
 		level_mod = ResistPhysical(temp_level_diff, caster_level);
 	}
-
 	else {
 
-		if(IsNPC() && level >= RuleI(Casting,ResistFalloff))
-		{
-			int a = (RuleI(Casting,ResistFalloff)-1) - caster_level;
-			if(a > 0)
-			{
-				temp_level_diff = a;
-			}
-			else
-			{
-				temp_level_diff = 0;
-			}
-		}
-
-		if(IsClient() && level >= 21 && temp_level_diff > 15)
-		{
-			temp_level_diff = 15;
-		}
-
-		if(IsNPC() && temp_level_diff < -9)
-		{
-			temp_level_diff = -9;
-		}
-
-		level_mod = temp_level_diff * temp_level_diff / 2;
-		if(temp_level_diff < 0)
-		{
-			level_mod = -level_mod;
-		}
-
-		if(IsNPC() && (caster_level - level) < -20)
-		{
-			level_mod = 1000;
-		}
-
 		//Even more level stuff this time dealing with damage spells
-		if(IsNPC() && IsDamageSpell(spell_id) && level >= 17)
+		if (IsNPC() && IsDamageSpell(spell_id))
 		{
-			int level_diff;
-			if(level >= RuleI(Casting,ResistFalloff))
+			if (target_level >= RuleI(Casting, ResistFalloff))
 			{
-				level_diff = (RuleI(Casting,ResistFalloff)-1) - caster_level;
-				if(level_diff < 0)
+				temp_level_diff = (RuleI(Casting, ResistFalloff) - 1) - caster_level;
+				if (temp_level_diff < 0)
 				{
-					level_diff = 0;
+					temp_level_diff = 0;
 				}
 			}
 			else
 			{
-				level_diff = level - caster_level;
+				temp_level_diff = target_level - caster_level;
 			}
-			level_mod += (2 * level_diff);
+
+			if (temp_level_diff > 0 && target_level >= 17)
+			{
+				level_mod += (2 * temp_level_diff);
+			}
 		}
 	}
 
@@ -4771,132 +5410,708 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 		*/
 		int16 charisma = caster->GetCHA();
 
-		if (IsFear && (spells[spell_id].targettype != ST_Undead)){
-
-			if (charisma < 100)
-				resist_modifier -= 20;
-
-			else if (charisma <= 255)
-				resist_modifier += (charisma - 100)/8;
-		}
-
-		else {
-
-			if (charisma >= 75){
-
+		if (!IsFear)
+		{
+			if (charisma >= 75)
+			{
 				if (charisma > RuleI(Spells, CharismaEffectivenessCap))
 					charisma = RuleI(Spells, CharismaEffectivenessCap);
 
-				resist_modifier -= (charisma - 75)/RuleI(Spells, CharismaEffectiveness);
+				resist_modifier -= (charisma - 75) / RuleI(Spells, CharismaEffectiveness);
 			}
 			else
-				resist_modifier += ((75 - charisma)/10) * 6; //Increase Resist Chance
+				resist_modifier += ((75 - charisma) / 10) * 6; //Increase Resist Chance
+
+			if (!caster->IsNPC() && (IsHarmonySpell(spell_id) || IsCharmSpell(spell_id)))
+			{
+				// make yellows and reds resist more often
+				if (leveldiff >= 1)
+				{
+					resist_modifier += 20 * (leveldiff + leveldiff);
+				}
+			}
+			LogSpells("CheckResistSpell(): Spell: [{}]  Charisma check. resist_modifier is: [{}]", spell_id, resist_modifier);
 		}
 
 	}
 
-
 	//Lull spells DO NOT use regular resists on initial cast, instead they use a flat +15 modifier. Live parses confirm this.
 	//Regular resists are used when checking if mob will aggro off of a lull resist.
-	if(!CharismaCheck && IsHarmonySpell(spell_id))
-		target_resist = 15;
+	if (!CharismaCheck && IsHarmonySpell(spell_id))
+	{
+		// make yellows and reds resist more often
+		if (leveldiff >= 1)
+		{
+			resist_modifier += 20 * (leveldiff + leveldiff);
+		}
+
+		target_resist = 15;				// first lull resist check uses 15 MR before mods, not target's actual MR
+
+		LogSpells("CheckResistSpell(): Spell: [{}]  No Charisma check. target_resist is: [{}] resist_modifier is: [{}]", spell_id, target_resist, resist_modifier);
+	}
 
 	//Add our level, resist and -spell resist modifier to our roll chance
 	resist_chance += level_mod;
 	resist_chance += resist_modifier;
 	resist_chance += target_resist;
 
+	if (CharmTick)
+	{
+		if (resist_chance < 12)		// a value of 12 for this rule seems to fit AK log data well
+			resist_chance = 12;
+			
+// ADDED TEMPORARILY UNTIL BALANCE
+
+		// dragon charm full duration for now
+		if (spell_id == 841)
+			return 100;
+		
+		uint32 buffduration = spells[spell_id].buffduration;
+		uint32 levelbuffduration = 0;
+		
+		if(spells[spell_id].buffdurationformula == 10)
+			levelbuffduration = caster->GetLevel() * 3 + 10;
+		else if(spells[spell_id].buffdurationformula == 3)
+			levelbuffduration = caster->GetLevel() * 30;
+		
+		if(levelbuffduration < buffduration)
+			buffduration = levelbuffduration;
+		
+		float chamod;
+		uint32 cha = caster->GetCHA();
+		uint32 expected_cha = GetLevel() * 5;
+		if(caster->GetClass() == 6 || caster->GetClass() == 11)
+		{
+			float chabonusmult = static_cast<float>(caster->GetLevel()) / 60;
+			cha += static_cast<int>(30 * chabonusmult);
+		}
+		chamod = static_cast<float>(cha) / static_cast<float>(expected_cha);
+		
+		if(chamod > 1.0)
+			chamod = 1.0;
+		
+		buffduration = static_cast<int>(static_cast<float>(buffduration) * chamod);
+		
+		uint32 ideal_level = caster->GetLevel() * 4 / 5;
+		
+		uint32 moblevel = GetLevel();
+		
+		float levelmod = static_cast<float>(moblevel) / static_cast<float>(ideal_level);
+		
+		if(moblevel > ideal_level)
+			levelmod = levelmod * levelmod * levelmod;
+		
+		buffduration = static_cast<int>(static_cast<float>(buffduration) / levelmod * 0.95);
+		
+		int32 mobmr = GetMR();
+		
+		if (mobmr <= -80)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.50);			
+		else if (mobmr <= -70)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.45);
+		else if (mobmr <= -60)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.40);
+		else if (mobmr <= -50)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.35);
+		else if (mobmr <= -40)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.30);
+		else if (mobmr <= -30)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.25);
+		else if (mobmr <= -20)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.20);
+		else if (mobmr <= -10)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.15);
+		else if (mobmr <= 0)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.10);
+		else if (mobmr <= 10)
+			buffduration = static_cast<int>(static_cast<float>(buffduration) * 1.05);
+
+		uint32 roll = zone->random.Int(1, buffduration);
+		
+		LogSpells("[{}] rolled [{}] out of [{}] - need 3 to pass - Cha: [{}] - IdealCha: [{}] - MobLevel: [{}]", caster->GetName(), roll, buffduration, cha, expected_cha, moblevel);
+		
+		if(roll > 2)
+			return 100;
+		else
+			return 0;
+	}
+
 	resist_chance = mod_spell_resist(resist_chance, level_mod, resist_modifier, target_resist, resist_type, spell_id, caster);
 
-	//Do our min and max resist checks.
-	if(resist_chance > spells[spell_id].MaxResist && spells[spell_id].MaxResist != 0)
+	// NPCs use special rules for rain spells in our era.
+	if (IsNPC() && IsAERainNukeSpell(spell_id))
 	{
-		resist_chance = spells[spell_id].MaxResist;
+		//20% innate resist
+		if (resist_chance < 0)
+			resist_chance = 40;
+		else
+			resist_chance += 40;
+		uint8 hp_percent = (uint8)((float)GetHP() / (float)GetMaxHP() * 100.0f);
+		if (target_level > 20 && hp_percent < 10)
+		{
+			return 0;
+		}
 	}
-
-	if(resist_chance < spells[spell_id].MinResist && spells[spell_id].MinResist != 0)
+	uint32 needed_for_max = 0;
+	if (this->IsClient() && (caster->IsClient() || (caster->IsPet() && caster->GetOwner()->IsClient())) || is_summoned_pet_and_should_be_treated_as_player)
 	{
-		resist_chance = spells[spell_id].MinResist;
+		// NEW SHIT
+		if (spell_id != 0 && IsRootSpell(spell_id))
+		{
+			int resist_rate_spread = RuleI(Spells, PVPRootResistRateSoftcap) - RuleI(Spells, PVPRootMinResistRate);
+			
+			int clevel = caster->GetLevel();
+			clevel -= 10;
+			if (clevel < 0)
+				clevel = 0;					
+			
+			int resist_for_threshold = RuleI(Spells, PVPRootMinLevelResistThreshold) + (RuleI(Spells, PVPRootMaxLevelResistThreshold) - RuleI(Spells, PVPRootMinLevelResistThreshold)) * clevel / 40;
+			
+			int roll_to_land = 0;
+			
+			if (resist_chance < resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPRootMinResistRate) + resist_rate_spread * resist_chance / resist_for_threshold;
+			else if (resist_chance > resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPRootResistRateSoftcap) + (resist_chance - resist_for_threshold) / RuleI(Spells, PVPRootOverCapReturn);
+			else
+				roll_to_land = RuleI(Spells, PVPRootResistRateSoftcap);
+			
+			if (roll_to_land > RuleI(Spells, PVPRootMaxResistRate))
+				roll_to_land = RuleI(Spells, PVPRootMaxResistRate);
+			
+			int roll = zone->random.Int(0, 100);
+
+			LogSpells("roll_to_land: [{}], roll: [{}]", roll_to_land, roll);
+
+			if (roll >= roll_to_land)
+				return 100;
+			else
+				return 0;	
+		}
+		else if (spell_id != 0 && IsMezSpell(spell_id))
+		{
+			if (IsBardSong(spell_id))
+			{
+				int resist_rate_spread = RuleI(Spells, PVPBardMezResistRateSoftcap) - RuleI(Spells, PVPBardMezMinResistRate);
+				
+				int clevel = caster->GetLevel();
+				clevel -= 10;
+				if (clevel < 0)
+					clevel = 0;					
+				
+				int resist_for_threshold = RuleI(Spells, PVPBardMezMinLevelResistThreshold) + (RuleI(Spells, PVPBardMezMaxLevelResistThreshold) - RuleI(Spells, PVPBardMezMinLevelResistThreshold)) * clevel / 40;
+				
+				int roll_to_land = 0;
+				
+				if (resist_chance < resist_for_threshold)
+					roll_to_land = RuleI(Spells, PVPBardMezMinResistRate) + resist_rate_spread * resist_chance / resist_for_threshold;
+				else if (resist_chance > resist_for_threshold)
+					roll_to_land = RuleI(Spells, PVPBardMezResistRateSoftcap) + (resist_chance - resist_for_threshold) / RuleI(Spells, PVPBardMezOverCapReturn);
+				else
+					roll_to_land = RuleI(Spells, PVPBardMezResistRateSoftcap);
+				
+				if (roll_to_land > RuleI(Spells, PVPBardMezMaxResistRate))
+					roll_to_land = RuleI(Spells, PVPBardMezMaxResistRate);
+				
+				int roll = zone->random.Int(0, 100);
+				
+				if (roll >= roll_to_land)
+					return 100;
+				else
+					return 0;
+			}
+			else
+			{
+				int resist_rate_spread = RuleI(Spells, PVPMezResistRateSoftcap) - RuleI(Spells, PVPMezMinResistRate);
+				
+				int clevel = caster->GetLevel();
+				clevel -= 10;
+				if (clevel < 0)
+					clevel = 0;					
+				
+				int resist_for_threshold = RuleI(Spells, PVPMezMinLevelResistThreshold) + (RuleI(Spells, PVPMezMaxLevelResistThreshold) - RuleI(Spells, PVPMezMinLevelResistThreshold)) * clevel / 40;
+				
+				int roll_to_land = 0;
+				
+				if (resist_chance < resist_for_threshold)
+					roll_to_land = RuleI(Spells, PVPMezMinResistRate) + resist_rate_spread * resist_chance / resist_for_threshold;
+				else if (resist_chance > resist_for_threshold)
+					roll_to_land = RuleI(Spells, PVPMezResistRateSoftcap) + (resist_chance - resist_for_threshold) / RuleI(Spells, PVPMezOverCapReturn);
+				else
+					roll_to_land = RuleI(Spells, PVPMezResistRateSoftcap);
+				
+				if (roll_to_land > RuleI(Spells, PVPMezMaxResistRate))
+					roll_to_land = RuleI(Spells, PVPMezMaxResistRate);
+				
+				int roll = zone->random.Int(0, 100);
+				
+				if (roll >= roll_to_land)
+					return 100;
+				else
+					return 0;
+			}
+		}	//												exclude rogue poisons
+		else if (spell_id != 0 && IsSnareSpell(spell_id) && spells[spell_id].pvpresistcap != -5)
+		{
+			int resist_rate_spread = RuleI(Spells, PVPSnareResistRateSoftcap) - RuleI(Spells, PVPSnareMinResistRate);
+			
+			int clevel = caster->GetLevel();
+			clevel -= 10;
+			if (clevel < 0)
+				clevel = 0;					
+			
+			int resist_for_threshold = RuleI(Spells, PVPSnareMinLevelResistThreshold) + (RuleI(Spells, PVPSnareMaxLevelResistThreshold) - RuleI(Spells, PVPSnareMinLevelResistThreshold)) * clevel / 40;
+			
+			int roll_to_land = 0;
+			
+			if (resist_chance < resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPSnareMinResistRate) + resist_rate_spread * resist_chance / resist_for_threshold;
+			else if (resist_chance > resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPSnareResistRateSoftcap) + (resist_chance - resist_for_threshold) / RuleI(Spells, PVPSnareOverCapReturn);
+			else
+				roll_to_land = RuleI(Spells, PVPSnareResistRateSoftcap);
+			
+			if (roll_to_land > RuleI(Spells, PVPSnareMaxResistRate))
+				roll_to_land = RuleI(Spells, PVPSnareMaxResistRate);
+			
+			int roll = zone->random.Int(0, 100);
+			
+			LogSpells("New Snare Check - Roll: [{}] - ToLand: [{}]", roll, roll_to_land);
+			
+			if (roll >= roll_to_land)
+				return 100;
+			else
+				return 0;	
+		}
+		else if (spell_id != 0 && IsPureStunSpell(spell_id))
+		{
+			int resist_rate_spread = RuleI(Spells, PVPPureStunResistRateSoftcap) - RuleI(Spells, PVPPureStunMinResistRate);
+			
+			int clevel = caster->GetLevel();
+			clevel -= 10;
+			if (clevel < 0)
+				clevel = 0;					
+			
+			int resist_for_threshold = RuleI(Spells, PVPPureStunMinLevelResistThreshold) + (RuleI(Spells, PVPPureStunMaxLevelResistThreshold) - RuleI(Spells, PVPPureStunMinLevelResistThreshold)) * clevel / 40;
+			
+			int roll_to_land = 0;
+			
+			if (resist_chance < resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPPureStunMinResistRate) + resist_rate_spread * resist_chance / resist_for_threshold;
+			else if (resist_chance > resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPPureStunResistRateSoftcap) + (resist_chance - resist_for_threshold) / RuleI(Spells, PVPPureStunOverCapReturn);
+			else
+				roll_to_land = RuleI(Spells, PVPPureStunResistRateSoftcap);
+			
+			if (roll_to_land > RuleI(Spells, PVPPureStunMaxResistRate))
+				roll_to_land = RuleI(Spells, PVPPureStunMaxResistRate);
+			
+			int roll = zone->random.Int(0, 100);
+			
+			LogSpells("ResistSpell() - Roll: [{}] - RollToLand: [{}]", roll, roll_to_land);
+			if (roll >= roll_to_land)
+				return 100;
+			else
+				return 0;	
+		}
+		else if (spell_id != 0 && IsBlindSpell(spell_id) && spells[spell_id].pvpresistcap != -5)
+		{
+			int resist_rate_spread = RuleI(Spells, PVPBlindResistRateSoftcap) - RuleI(Spells, PVPBlindMinResistRate);
+			
+			int clevel = caster->GetLevel();
+			clevel -= 10;
+			if (clevel < 0)
+				clevel = 0;					
+			
+			int resist_for_threshold = RuleI(Spells, PVPBlindMinLevelResistThreshold) + (RuleI(Spells, PVPBlindMaxLevelResistThreshold) - RuleI(Spells, PVPBlindMinLevelResistThreshold)) * clevel / 40;
+			
+			int roll_to_land = 0;
+			
+			if (resist_chance < resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPBlindMinResistRate) + resist_rate_spread * resist_chance / resist_for_threshold;
+			else if (resist_chance > resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPBlindResistRateSoftcap) + (resist_chance - resist_for_threshold) / RuleI(Spells, PVPBlindOverCapReturn);
+			else
+				roll_to_land = RuleI(Spells, PVPBlindResistRateSoftcap);
+			
+			if (roll_to_land > RuleI(Spells, PVPBlindMaxResistRate))
+				roll_to_land = RuleI(Spells, PVPBlindMaxResistRate);
+			
+			int roll = zone->random.Int(0, 100);
+			if (roll >= roll_to_land)
+				return 100;
+			else
+				return 0;	
+		}
+		else if (spell_id != 0 && (IsResistDebuffSpell(spell_id) || IsScentSpell(spell_id) || spell_id == 526 || spell_id == 527) && spells[spell_id].pvpresistcap != -5)
+		{
+			int resist_rate_spread = RuleI(Spells, PVPResistDebuffResistRateSoftcap) - RuleI(Spells, PVPResistDebuffMinResistRate);
+			
+			int clevel = caster->GetLevel();
+			clevel -= 10;
+			if (clevel < 0)
+				clevel = 0;
+			
+			int resist_for_threshold = RuleI(Spells, PVPResistDebuffMinLevelResistThreshold) + (RuleI(Spells, PVPResistDebuffMaxLevelResistThreshold) - RuleI(Spells, PVPResistDebuffMinLevelResistThreshold)) * clevel / 40;
+			
+			int roll_to_land = 0;
+			
+			if (resist_chance < resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPResistDebuffMinResistRate) + resist_rate_spread * resist_chance / resist_for_threshold;
+			else if (resist_chance > resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPResistDebuffResistRateSoftcap) + (resist_chance - resist_for_threshold) / RuleI(Spells, PVPResistDebuffOverCapReturn);
+			else
+				roll_to_land = RuleI(Spells, PVPResistDebuffResistRateSoftcap);
+			
+			if (roll_to_land > RuleI(Spells, PVPResistDebuffMaxResistRate))
+				roll_to_land = RuleI(Spells, PVPResistDebuffMaxResistRate);
+			
+			int roll = zone->random.Int(0, 100);
+
+			if (roll >= roll_to_land)
+				return 100;
+			else
+				return 0;	
+		}
+		else if (spell_id != 0 && IsSlowSpell(spell_id))
+		{
+			int resist_rate_spread = RuleI(Spells, PVPSlowResistRateSoftcap) - RuleI(Spells, PVPSlowMinResistRate);
+			
+			int clevel = caster->GetLevel();
+			clevel -= 10;
+			if (clevel < 0)
+				clevel = 0;					
+			
+			int resist_for_threshold = RuleI(Spells, PVPSlowMinLevelResistThreshold) + (RuleI(Spells, PVPSlowMaxLevelResistThreshold) - RuleI(Spells, PVPSlowMinLevelResistThreshold)) * clevel / 40;
+			
+			int roll_to_land = 0;
+			
+			if (resist_chance < resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPSlowMinResistRate) + resist_rate_spread * resist_chance / resist_for_threshold;
+			else if (resist_chance > resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPSlowResistRateSoftcap) + (resist_chance - resist_for_threshold) / RuleI(Spells, PVPSlowOverCapReturn);
+			else
+				roll_to_land = RuleI(Spells, PVPSlowResistRateSoftcap);
+			
+			if (roll_to_land > RuleI(Spells, PVPSlowMaxResistRate))
+				roll_to_land = RuleI(Spells, PVPSlowMaxResistRate);
+			
+			int roll = zone->random.Int(0, 100);
+
+			if (roll >= roll_to_land)
+				return 100;
+			else
+				return 0;	
+		}
+		//							rogue poisons						but not poisons that hit for HP	
+		else if (spell_id != 0 && spells[spell_id].pvpresistcap == -5 && !IsEffectInSpell(spell_id, SE_CurrentHP))
+		{
+			int resist_rate_spread = RuleI(Spells, PVPPoisonResistRateSoftcap) - RuleI(Spells, PVPPoisonMinResistRate);
+			
+			int clevel = caster->GetLevel();
+			clevel -= 10;
+			if (clevel < 0)
+				clevel = 0;					
+			
+			int resist_for_threshold = RuleI(Spells, PVPPoisonMinLevelResistThreshold) + (RuleI(Spells, PVPPoisonMaxLevelResistThreshold) - RuleI(Spells, PVPPoisonMinLevelResistThreshold)) * clevel / 40;
+			
+			int roll_to_land = 0;
+			
+			if (resist_chance < resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPPoisonMinResistRate) + resist_rate_spread * resist_chance / resist_for_threshold;
+			else if (resist_chance > resist_for_threshold)
+				roll_to_land = RuleI(Spells, PVPPoisonResistRateSoftcap) + (resist_chance - resist_for_threshold) / RuleI(Spells, PVPPoisonOverCapReturn);
+			else
+				roll_to_land = RuleI(Spells, PVPPoisonResistRateSoftcap);
+			
+			if (roll_to_land > RuleI(Spells, PVPPoisonMaxResistRate))
+				roll_to_land = RuleI(Spells, PVPPoisonMaxResistRate);
+			
+			int roll = zone->random.Int(0, 100);
+			
+			LogSpells("New Poison Check - Roll: [{}] - ToLand: [{}]", roll, roll_to_land);
+
+			if (roll >= roll_to_land)
+				return 100;
+			else
+				return 0;	
+		}
+		// END NEW SHIT
+
 	}
-
-	//Average charm duration agianst mobs with 0% chance to resist on LIVE is ~ 68 ticks.
-	//Minimum resist chance should be caclulated factoring in the RuleI(Spells, CharmBreakCheckChance)
-	if (CharmTick) {
-
-		float min_charmbreakchance = ((100.0f/static_cast<float>(RuleI(Spells, CharmBreakCheckChance)))/66.0f * 100.0f)*2.0f;
-		if (resist_chance < static_cast<int>(min_charmbreakchance))
-			resist_chance = min_charmbreakchance;
+	
+	//Dispels unresistable
+	if (spells[spell_id].spell_category == 97) {
+		return 100;
 	}
-
-	//Average root duration agianst mobs with 0% chance to resist on LIVE is ~ 22 ticks (6% resist chance).
-	//Minimum resist chance should be caclulated factoring in the RuleI(Spells, RootBreakCheckChance)
-	if (IsRoot) {
-
-		float min_rootbreakchance = ((100.0f/static_cast<float>(RuleI(Spells, RootBreakCheckChance)))/22.0f * 100.0f)*2.0f;
-
-		if (resist_chance < static_cast<int>(min_rootbreakchance))
-			resist_chance = min_rootbreakchance;
+	
+	// New elemental resist system for PVP
+	if (RuleB(RoZ, NewPVPSpellResists) && GetUltimateOwner()->IsClient() && caster->GetUltimateOwner()->IsClient())
+	{
+		int target_resist = GetResist(resist_type);
+		
+		// PVE resist check
+		if (spells[spell_id].ResistDiff < 0)
+			target_resist += spells[spell_id].ResistDiff;
+		
+		// PVP resist check
+		if (spells[spell_id].pvpresistbase < 0)
+			target_resist += spells[spell_id].pvpresistbase;
+		
+		if (target_resist <= 0)
+			return 100.0;
+		
+		float damage_reduction_percent = 0.0;
+		
+		float targres = static_cast<float>(target_resist);
+		float split_threshold = static_cast<float>(RuleI(RoZ, NewPVPSpellResistSplitThreshold));
+		float split_resistrate = static_cast<float>(RuleI(RoZ, NewPVPSpellResistSplitResistRate));
+		float softcap_threshold = static_cast<float>(RuleI(RoZ, NewPVPSpellResistSoftcapThreshold));
+		float softcap_resistrate = static_cast<float>(RuleI(RoZ, NewPVPSpellResistSoftcapResistRate));
+		float hardcap_threshold = static_cast<float>(RuleI(RoZ, NewPVPSpellResistHardcapThreshold));
+		float hardcap_resistrate = static_cast<float>(RuleI(RoZ, NewPVPSpellResistHardcapResistRate));
+		float fullresist_roll_offset = static_cast<float>(RuleI(RoZ, NewPVPSpellResistFullResistRollOffset));
+		float damage_reduction_variance = static_cast<float>(RuleI(RoZ, NewPVPSpellResistDamageReductionVariance));
+		
+		if (targres > hardcap_threshold)
+			targres = hardcap_threshold;
+		
+		// Determine damage reduction
+		if (targres <= split_threshold)
+			damage_reduction_percent = targres / split_threshold * split_resistrate;
+		else if (target_resist <= softcap_threshold)
+			damage_reduction_percent = (split_resistrate + (targres - split_threshold) / (softcap_threshold - split_threshold) * (softcap_resistrate - split_resistrate));
+		else
+			damage_reduction_percent = (softcap_resistrate + (targres - softcap_threshold) / (hardcap_threshold - softcap_threshold) * (hardcap_resistrate - softcap_resistrate));
+		
+		LogSpells("Checking for full resist.");
+		
+		// Check for full resist
+		if (damage_reduction_percent > fullresist_roll_offset)
+		{
+			if (zone->random.Roll(static_cast<int>(damage_reduction_percent - fullresist_roll_offset)))
+				return 0.0;
+		}
+		
+		// Variability
+		if (damage_reduction_percent > 0.0)
+		{
+			float variance = zone->random.Real(-damage_reduction_variance, damage_reduction_variance);
+			damage_reduction_percent += variance;
+		}
+		
+		LogSpells("Damage Reduction Percent: [{}]", damage_reduction_percent);
+		
+		if (damage_reduction_percent <= 0.0)
+			return 100.0;
+		else
+			return 100.0 - damage_reduction_percent;
 	}
-
+	
+	
 	//Finally our roll
 	int roll = zone->random.Int(0, 200);
-	if(roll > resist_chance)
+	LogSpells("ResistSpell(): Spell: [{}] roll [{}] > resist_chance [{}] (minus [{}])", spell_id, roll, resist_chance, GetMinLevel(spell_id));
+	if (roll >= resist_chance)
 	{
 		return 100;
 	}
-	else
+	else if (IsNPC() && !IsPet() || IsNPC() && IsPet() && GetOwner() && !GetOwner()->IsClient() || IsCharmed() && IsPet() && GetOwner() && GetOwner()->IsClient())
 	{
-		//This is confusing but it's basically right
-		//It skews partial resists up over 100 more often than not
-		if(!IsPartialCapableSpell(spell_id))
+		if (!IsPartialCapableSpell(spell_id))
 		{
 			return 0;
 		}
 		else
 		{
-			if(resist_chance < 1)
-			{
-				resist_chance = 1;
-			}
-
-			int partial_modifier = ((150 * (resist_chance - roll)) / resist_chance);
-
-			if(IsNPC())
-			{
-				if(level > caster_level && level >= 17 && caster_level <= 50)
-				{
-					partial_modifier += 5;
-				}
-
-				if(level >= 30 && caster_level < 50)
-				{
-					partial_modifier += (caster_level - 25);
-				}
-
-				if(level < 15)
-				{
-					partial_modifier -= 5;
-				}
-			}
-
-			if(caster->IsNPC())
-			{
-				if((level - caster_level) >= 20)
-				{
-					partial_modifier += (level - caster_level) * 1.5;
-				}
-			}
-
-			if(partial_modifier <= 0)
-			{
-				return 100;
-			}
-			else if(partial_modifier >= 100)
+			if (!IsPartialCapableSpell(spell_id))
 			{
 				return 0;
 			}
+			else
+			{
+				int partial_modifier = ((150 * (resist_chance - roll)) / resist_chance);
 
-			return (100.0f - partial_modifier);
+				if (IsNPC())
+				{
+					if (target_level > caster_level && target_level >= 17 && caster_level <= 50)
+					{
+						partial_modifier += 5;
+					}
+
+					if (target_level >= 30 && caster_level < 50)
+					{
+						partial_modifier += (caster_level - 25);
+					}
+
+					if (target_level < 15)
+					{
+						partial_modifier -= 5;
+					}
+				}
+
+				if (caster->IsNPC())
+				{
+					if ((target_level - caster_level) >= 20)
+					{
+						partial_modifier += (int)((target_level - caster_level) * 1.5);
+					}
+				}
+
+				if (partial_modifier <= 0)
+				{
+					return 100;
+				}
+				else if (partial_modifier >= 100)
+				{
+					return 0;
+				}
+
+				return (100.0f - partial_modifier);
+			}
+		}
+	}
+	else
+	{
+		if (IsRootSpell(spell_id) || IsStunSpell(spell_id) || IsSnareSpell(spell_id) || IsBlindSpell(spell_id) || IsSlowSpell(spell_id) || /* IsResistDebuffSpell(spell_id) || */ IsWhirlSpell(spell_id) || spells[spell_id].pvpresistcap == -5)
+		{
+			if (roll < resist_chance)
+				return 0;
+		}
+		
+		//we're client or client owned.
+			//LinuXY
+		switch (resist_type) {
+			case RESIST_MAGIC:
+				resist = GetMR();
+				break;
+
+			case RESIST_FIRE:
+				resist = GetFR();
+				break;
+
+			case RESIST_COLD:
+				resist = GetCR();
+				break;
+
+			case RESIST_POISON:
+				if (spells[spell_id].ResistDiff >= -10 && spells[spell_id].pvpresistbase >= -10)
+					resist = GetPR() - 25;
+				else
+					resist = GetPR();
+				break;
+
+			case RESIST_DISEASE:
+				if (spells[spell_id].ResistDiff >= -10 && spells[spell_id].pvpresistbase >= -10)
+					resist = GetDR() - 25;
+				else
+					resist = GetDR();
+				break;
+
+				// Hvitrev: Primsatic = average of all resists
+			case RESIST_PRISMATIC:
+				resist = (GetDR() + GetMR() + GetFR() + GetCR() + GetPR()) / 5;
+				break;
+
+				// Hvitrev: Chromatic = lowest of all resists
+			case RESIST_CHROMATIC: {
+				int tempresist = GetMR();
+				int tempresist2 = GetFR();
+
+				if (tempresist < tempresist2)
+					resist = tempresist;
+				else
+					resist = tempresist2;
+				tempresist = GetCR();
+				if (tempresist < resist)
+					resist = tempresist;
+				tempresist = GetDR();
+				if (tempresist < resist)
+					resist = tempresist;
+				tempresist = GetPR();
+				if (tempresist < resist)
+					resist = tempresist;
+				break;
+			}
+
+								   // solar: I don't know how to calculate this stuff
+			case RESIST_PHYSICAL:
+			default:
+				resist = GetMR();
+				break;
+		}
+		
+		if ((IsClient() || GetUltimateOwner()->IsClient()) && (caster->IsClient() || caster->GetUltimateOwner()->IsClient())) {
+			//From RoZ 1.0- don't include positive resist bases...
+			//https://github.com/LinuXY/project-eidolon/blob/pvp-new/zone/spells.cpp#L5761
+			if(spells[spell_id].pvpresistbase < 0) {
+				resist += spells[spell_id].pvpresistbase;
+			}
+		}
+
+		float specialcases = 0;
+		
+		if (caster->IsClient() && IsMob() && IsFearSpell(spell_id)) {
+			specialcases += 10;
+		}
+		float lvldiff;
+		if (caster->IsPet())
+			lvldiff = (caster->GetOwner()->GetLevel()) - target_level;
+		else
+			lvldiff = caster_level - target_level;
+		float partialresist = 0;
+		float partialrange = 0;
+		
+
+
+		if (caster && (IsClient() || (IsPet())) && (caster->IsClient() || caster->IsPet())) {
+			resistchance = 0;
+			resistchance -= lvldiff * 2;
+			resistchance += spells[spell_id].ResistDiff;
+			//resistchance += resist * 0.33;
+			resistchance += resist;
+			resistchance += specialcases;
+			resistrate = resistchance;
+			//        higher arch                          raises curve
+			resistchance = (resistchance<0) ? 0 : resistchance;
+			resistchance = (210 * resistchance / (resistchance + 270)) - 15;        //Null: had a graph that i wanted, and just started plugging away until i got it looking right.
+		}
+		else {
+			resistchance = 0;
+			resistchance -= lvldiff * 5;
+			resistchance += spells[spell_id].ResistDiff;
+			//      resistchance += resist * 0.2;
+			resistchance += resist;
+			resistchance += specialcases;
+			resistrate = resistchance;
+			//        higher arch                          raises curve
+			resistchance = (resistchance<0) ? 0 : resistchance;
+			resistchance = (pow(resistchance, 1.6f)) / 100 - 1;      //Null: had a graph that i wanted, and just started plugging away until it looking right.
+
+		}
+
+		//partialresist = (resistchance - (resistchance/4));
+		//partialrange = (resistchance - partialresist);
+
+		roll = zone->random.Real(0, 100);
+		//if(caster->IsClient() && caster->CastToClient()->Admin() > 40)
+		//      caster->Message(13, "Roll: %f Resist Chance: %f", roll, resistchance);
+
+		LogSpells("Resist calc- resistchance:[{}] partialresist:[{}]", resistchance, partialresist);		
+		LogSpells("Partial Roll: [{}] - resistchance: [{}} - partialresist: [{}]", roll, resistchance, partialresist);
+		if (roll > resistchance) {
+			deviance = zone->random.Int(208, 267);
+			partialresist = (-1 * atan(resistrate / 50) * 430 / 3.1415 + deviance) - partialmod;           //Null: Outsourced this to The SPG: Math Jesus.
+																										   //if(caster->IsClient() && caster->CastToClient()->Admin() > 40)
+																										   // caster->Message(13, "partialmod: %f partialresist: %f", partialmod, partialresist);
+			partialresist = (partialresist<0) ? 0 : partialresist;
+			LogSpells("Returned partialresist:[{}]", partialresist);
+			return (((partialresist>100) ? 100 : partialresist));
+			//return 100;
+
+		}
+		else {
+			return 0;
 		}
 	}
 }
@@ -5546,9 +6761,7 @@ bool Mob::FindType(uint16 type, bool bOffensive, uint16 threshold) {
 											spells[buffs[i].spellid].base[j],
 											spells[buffs[i].spellid].max[j],
 											buffs[i].casterlevel, buffs[i].spellid);
-						Log(Logs::General, Logs::Normal,
-								"FindType: type = %d; value = %d; threshold = %d",
-								type, value, threshold);
+						LogSpells("FindType: type = [{}]; value = [{}]; threshold = [{}]", type, value, threshold);
 						if (value < threshold)
 							return true;
 					}
@@ -5611,7 +6824,7 @@ bool Mob::AddProcToWeapon(uint16 spell_id, bool bPerma, uint16 iChance, uint16 b
 					SpellProcs[i].spellID = spell_id;
 					SpellProcs[i].chance = iChance;
 					SpellProcs[i].level_override = level_override;
-					Log(Logs::Detail, Logs::Spells, "Replaced poison-granted proc spell %d with chance %d to slot %d", spell_id, iChance, i);
+					LogSpells("Replaced poison-granted proc spell [{}] with chance [{}] to slot [{}]", spell_id, iChance, i);
 					return true;
 				}
 			}

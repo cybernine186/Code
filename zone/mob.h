@@ -309,6 +309,7 @@ public:
 		int resist_override = 0, bool CharismaCheck = false, bool CharmTick = false, bool IsRoot = false,
 		int level_override = -1);
 	int GetResist(uint8 resist_type);
+	float CheckResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, Mob *target, bool use_resist_override, int resist_override, bool CharismaCheck, bool CharmTick, bool IsRoot);
 	int ResistPhysical(int level_diff, uint8 caster_level);
 	int ResistElementalWeaponDmg(const EQ::ItemInstance *item);
 	int CheckBaneDamage(const EQ::ItemInstance *item);
@@ -331,7 +332,7 @@ public:
 		uint32 inventory_slot = 0xFFFFFFFF, int16 resist_adjust = 0, bool isproc = false, int level_override = -1);
 	void SendBeginCast(uint16 spell_id, uint32 casttime);
 	virtual bool SpellOnTarget(uint16 spell_id, Mob* spelltar, bool reflect = false,
-		bool use_resist_adjust = false, int16 resist_adjust = 0, bool isproc = false, int level_override = -1);
+		bool use_resist_adjust = false, int16 resist_adjust = 0, bool isproc = false, int level_override = -1, bool isclicky = false);
 	virtual bool SpellEffect(Mob* caster, uint16 spell_id, float partial = 100, int level_override = -1);
 	virtual bool DetermineSpellTargets(uint16 spell_id, Mob *&spell_target, Mob *&ae_center,
 		CastAction_type &CastAction, EQ::spells::CastingSlot slot, bool isproc = false);
@@ -369,7 +370,7 @@ public:
 	bool IsAffectedByBuff(uint16 spell_id);
 	bool IsAffectedByBuffByGlobalGroup(GlobalGroup group);
 	void BuffModifyDurationBySpellID(uint16 spell_id, int32 newDuration);
-	int AddBuff(Mob *caster, const uint16 spell_id, int duration = 0, int32 level_override = -1);
+	int AddBuff(Mob *caster, const uint16 spell_id, int duration = 0, int32 level_override = -1, uint32 partial = 0);
 	int CanBuffStack(uint16 spellid, uint8 caster_level, bool iFailIfOverwrite = false);
 	int CalcBuffDuration(Mob *caster, Mob *target, uint16 spell_id, int32 caster_level_override = -1);
 	void SendPetBuffsToClient();
@@ -381,6 +382,7 @@ public:
 	virtual int GetMaxDiscSlots() const { return 0; }
 	virtual int GetMaxTotalSlots() const { return 0; }
 	bool HasDiscBuff();
+	int GetFirstEmptyBuffSlot();
 	virtual uint32 GetFirstBuffSlot(bool disc, bool song);
 	virtual uint32 GetLastBuffSlot(bool disc, bool song);
 	virtual void InitializeBuffSlots() { buffs = nullptr; current_buff_count = 0; }
