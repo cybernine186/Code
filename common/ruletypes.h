@@ -409,6 +409,7 @@ RULE_BOOL(Spells, InvisRequiresGroup, false, "Invis requires the the target to b
 RULE_BOOL(Spells, ClickyCasting, true, "")
 RULE_BOOL(Spells, NoBeneficialDetrimentalBlock, true, "")
 RULE_INT(Spells, BuffDurationModifier, 1, "")
+RULE_BOOL(Spells, LOSCheckOnSpellFinished, true, "Enable Line of Sight check on Spell Finished")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Combat)
