@@ -1632,11 +1632,11 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 
 	if (!ClientFinishedLoading())
 		damage = -5;
-	
+
 	if (other != nullptr && iBuffTic && is_client_moving && !IsRooted() && !IsFeared() && !IsRunning() && !IsBardSong(spell_id)) { //If the target is moving dots only do partial damage
 		damage = (damage * .66);
 	}
-	
+
 
 	//do a majority of the work...
 	CommonDamage(other, damage, spell_id, attack_skill, avoidable, buffslot, iBuffTic, special);
@@ -1745,7 +1745,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			killerMob->TrySpellOnKill(killed_level, spell);
 		}
 
-		if (killerMob->IsClient() && (IsDueling() || killerMob->CastToClient()->IsDueling())) 
+		if (killerMob->IsClient() && (IsDueling() || killerMob->CastToClient()->IsDueling()))
 		{
 			SetDueling(false);
 			SetDuelTarget(0);
@@ -1775,7 +1775,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			std::vector<EQ::Any> args;
 			args.push_back(victim);
 
-			int pvp_points = 0; 
+			int pvp_points = 0;
 
 			// naez: 0 points for farming your own
 			if (killerMob->CastToClient()->GetIP() != victim->CastToClient()->GetIP()) {
@@ -1788,29 +1788,32 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			  	if (group != 0)
 			  	{
 					uint8 gcount = group->GroupCount();
+					//Brynja: this is the old Live system
+					// if (gcount > 4) {
+					// 	pvp_points = pvp_points * 1.1;
+					// }
+					// if (gcount == 5) {
+					// 	pvp_points = pvp_points * 1.15;
+					// }
+					// if (gcount == 6) {
+					// 	pvp_points = pvp_points * 1.2;
+					// }
 
-					if (gcount > 4) {
-						pvp_points = pvp_points * 1.1;
-					}
-					if (gcount == 5) {	
-						pvp_points = pvp_points * 1.15;
-					}
-					if (gcount == 6) {	
-						pvp_points = pvp_points * 1.2;
-					}
+					//Brynja: pvp points are divided evenly among group members, rounded down
+					pvp_points = pvp_points - floor(pvp_points / gcount);
 
 					for (int i = 0; i<6; i++)
 					{
 						if (group->members[i] != nullptr)
 						{
-							database.RegisterPVPKill(group->members[i]->CastToClient(), victim, pvp_points); 
+							database.RegisterPVPKill(group->members[i]->CastToClient(), victim, pvp_points);
 
 							group->members[i]->CastToClient()->HandlePVPKill(pvp_points);
 						}
 					}
 			  	}
 			} else {
-				database.RegisterPVPKill(killerMob->CastToClient(), victim, pvp_points); 
+				database.RegisterPVPKill(killerMob->CastToClient(), victim, pvp_points);
 
 				killerMob->CastToClient()->HandlePVPKill(pvp_points);
 			}
@@ -1867,23 +1870,23 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		{
 			LogCombat("killer mob is client [{}]", killerMob->GetName());
 			int pvpleveldifference = 0;
-			//if (RuleI(World, PVPSettings) == 4) 
-				//pvpleveldifference = 5; //Sullon Zek 
+			//if (RuleI(World, PVPSettings) == 4)
+				//pvpleveldifference = 5; //Sullon Zek
 			if (RuleI(World, PVPLoseExperienceLevelDifference) > 0)
 				pvpleveldifference = RuleI(World, PVPLoseExperienceLevelDifference);
 
 			if (pvpleveldifference > 0) {
-				
+
  				int level_difference = 0;
- 				if (GetLevel() > killerMob->GetLevel()) 
+ 				if (GetLevel() > killerMob->GetLevel())
 					level_difference = GetLevel() - killerMob->GetLevel();
- 				else 
+ 				else
 					level_difference = killerMob->GetLevel() - GetLevel();
  				LogCombat("pvpleveldifference is [{}] and level_difference is [{}]", pvpleveldifference, level_difference);
- 				if (level_difference > pvpleveldifference) 
+ 				if (level_difference > pvpleveldifference)
 					exploss = 0;
  			}
- 			else 
+ 			else
  			{
  				exploss = 0;
  			}
@@ -1903,7 +1906,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			if (buffs[buffIt].spellid == spell)
 			{
 				strcpy(caster_name, buffs[buffIt].caster_name);
-				if (buffs[buffIt].client) 
+				if (buffs[buffIt].client)
 				{
 					exploss = 0;	// no exp loss for pvp dot
 					break;
@@ -2065,7 +2068,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		std::string event_desc = StringFormat("Died in zoneid:%i instid:%i by '%s', spellid:%i, damage:%i", this->GetZoneID(), this->GetInstanceID(), killer_name, spell, damage);
 		QServ->PlayerLogEvent(Player_Log_Deaths, this->CharacterID(), event_desc);
 	}
-	
+
 	if (killerMob && strlen(caster_name) > 0 && strcmp(killerMob->GetName(), caster_name) == -1)
 	{
 		snprintf(buffer, 63, "%d %d %d %d %s", 0, damage, spell, static_cast<int>(attack_skill), caster_name);
@@ -3609,9 +3612,9 @@ bool Mob::CheckDoubleAttack()
 	int per_inc = aabonuses.DoubleAttackChance + spellbonuses.DoubleAttackChance + itembonuses.DoubleAttackChance;
 	if (per_inc)
 		chance += chance * per_inc / 100;
-	
+
 	// Voidd: TODO - Make rule for when mobs get double attack?
-	
+
 	//mobs don't double attack until 17
 	if (IsNPC() && GetLevel() < 17) {
 		chance = 0;
@@ -5244,8 +5247,8 @@ bool Mob::TryRootFadeByDamage(int buffslot, Mob* attacker) {
 		int BreakChance = RuleI(Spells, RootBreakFromSpells);
 		if (attacker && attacker->IsClient() && IsClient()) {
 			if (RuleI(World, PVPSettings) > 0) BreakChance = 75; //All PVP servers is default 75% chance for root to break
-				
-			
+
+
 			if (RuleI(Spells, PVPRootBreakFromSpells) > 0) BreakChance = RuleI(Spells, PVPRootBreakFromSpells);
 		}
 
