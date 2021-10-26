@@ -2025,4 +2025,5 @@ private:
 #endif
 };
 
+int GetMaxSpellGems();
 #endif

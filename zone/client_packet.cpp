@@ -1494,7 +1494,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	}
 
 	if (SPDAT_RECORDS > 0) {
-		for (uint32 z = 0; z < EQ::spells::SPELL_GEM_COUNT; z++) {
+		for (uint32 z = 0; z < GetMaxSpellGems(); z++) {
 			if (m_pp.mem_spells[z] >= (uint32)SPDAT_RECORDS)
 				UnmemSpell(z, false);
 		}
@@ -1626,7 +1626,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	}
 
 	/* Load Spell Slot Refresh from Currently Memoried Spells */
-	for (unsigned int i = 0; i < EQ::spells::SPELL_GEM_COUNT; ++i)
+	for (unsigned int i = 0; i < GetMaxSpellGems(); ++i)
 		if (IsValidSpell(m_pp.mem_spells[i]))
 			m_pp.spellSlotRefresh[i] = p_timers.GetRemainingTime(pTimerSpellStart + m_pp.mem_spells[i]) * 1000;
 
@@ -4150,14 +4150,14 @@ void Client::Handle_OP_CastSpell(const EQApplicationPacket *app)
 	/* Memorized Spell */
 	if (m_pp.mem_spells[castspell->slot] && m_pp.mem_spells[castspell->slot] == castspell->spell_id) {
 		uint16 spell_to_cast = 0;
-		if (castspell->slot < EQ::spells::SPELL_GEM_COUNT) {
+		if (castspell->slot < GetMaxSpellGems()) {
 			spell_to_cast = m_pp.mem_spells[castspell->slot];
 			if (spell_to_cast != castspell->spell_id) {
 				InterruptSpell(castspell->spell_id); //CHEATER!!!
 				return;
 			}
 		}
-		else if (castspell->slot >= EQ::spells::SPELL_GEM_COUNT) {
+		else if (castspell->slot >= GetMaxSpellGems()) {
 			InterruptSpell();
 			return;
 		}
@@ -9598,7 +9598,7 @@ void Client::Handle_OP_LoadSpellSet(const EQApplicationPacket *app)
 	}
 	int i;
 	LoadSpellSet_Struct* ss = (LoadSpellSet_Struct*)app->pBuffer;
-	for (i = 0; i < EQ::spells::SPELL_GEM_COUNT; i++) {
+	for (i = 0; i < GetMaxSpellGems(); i++) {
 		if (ss->spell[i] != 0xFFFFFFFF)
 			UnmemSpell(i, true);
 	}

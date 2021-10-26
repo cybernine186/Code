@@ -5263,7 +5263,7 @@ void Client::MakeBuffFadePacket(uint16 spell_id, int slot_id, bool send_message)
 
 void Client::MemSpell(uint16 spell_id, int slot, bool update_client)
 {
-	if(slot >= EQ::spells::SPELL_GEM_COUNT || slot < 0)
+	if(slot >= GetMaxSpellGems() || slot < 0)
 		return;
 
 	if(update_client)

@@ -10419,7 +10419,7 @@ std::vector<int> Client::GetLearnedDisciplines() {
 
 std::vector<int> Client::GetMemmedSpells() {
 	std::vector<int> memmed_spells;
-	for (int index = 0; index < EQ::spells::SPELL_GEM_COUNT; index++) {
+	for (int index = 0; index < GetMaxSpellGems(); index++) {
 		if (IsValidSpell(m_pp.mem_spells[index])) {
 			memmed_spells.push_back(m_pp.mem_spells[index]);
 		}
@@ -10848,4 +10848,17 @@ uint16 Client::GetDoorToolEntityId() const
 void Client::SetDoorToolEntityId(uint16 door_tool_entity_id)
 {
 	Client::m_door_tool_entity_id = door_tool_entity_id;
+}
+
+int GetMaxSpellGems()
+{
+	if (RuleI(Character, MaxSpellGems) > 0)
+	{
+		if (RuleI(Character, MaxSpellGems) > EQ::spells::SPELL_GEM_COUNT)
+			return EQ::spells::SPELL_GEM_COUNT;
+		else
+			return RuleI(Character, MaxSpellGems);
+	}
+
+	return EQ::spells::SPELL_GEM_COUNT;
 }

@@ -1199,12 +1199,12 @@ bool ZoneDatabase::LoadCharacterMemmedSpells(uint32 character_id, PlayerProfile_
 	auto results = database.QueryDatabase(query);
 	int i = 0;
 	/* Initialize Spells */
-	for (i = 0; i < EQ::spells::SPELL_GEM_COUNT; i++){
+	for (i = 0; i < GetMaxSpellGems(); i++){
 		pp->mem_spells[i] = 0xFFFFFFFF;
 	}
 	for (auto row = results.begin(); row != results.end(); ++row) {
 		i = atoi(row[0]);
-		if (i < EQ::spells::SPELL_GEM_COUNT && atoi(row[1]) <= SPDAT_RECORDS){
+		if (i < GetMaxSpellGems() && atoi(row[1]) <= SPDAT_RECORDS){
 			pp->mem_spells[i] = atoi(row[1]);
 		}
 	}

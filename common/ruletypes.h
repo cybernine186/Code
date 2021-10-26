@@ -178,6 +178,7 @@ RULE_BOOL(Character, PVPAllowFear, false, "If enabled, will allow clients to fea
 RULE_BOOL(Character, EnableBardMelody, true, "Enable Bard /melody by default, to disable change to false for a classic experience.")
 RULE_BOOL(Character, EnableRangerAutoFire, true, "Enable Ranger /autofire by default, to disable change to false for a classic experience.")
 RULE_BOOL(Character, EnableTGB, true, "Enable /tgb (Target Group Buff) by default, to disable change to false for a classic experience.")
+RULE_INT(Character, MaxSpellGems, -1, "Max spell gems allowed, -1 = rule disabled and returns EQ::spells::SPELL_GEM_COUNT, 8=Classic-Gates of Discord, 9=Dragons of Norrath, 10=Secrets of Faydwer, 12=Underfoot")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Mercs)
@@ -405,72 +406,9 @@ RULE_BOOL(Spells, PreventFactionWarOnCharmBreak, false, "Enable spell interupts 
 RULE_BOOL(Spells, AllowDoubleInvis, false, "Allows you to cast invisibility spells on a player that is already invisible")
 RULE_BOOL(Spells, AllowSpellMemorizeFromItem, false, "Allows players to memorize spells by right-clicking spell scrolls")
 RULE_BOOL(Spells, InvisRequiresGroup, false, "Invis requires the the target to be in group.")
-RULE_INT(Spells, PVPRootMinResistRate, 10, "")    // Resist rate at 0MR, any level
-RULE_INT(Spells, PVPRootMaxResistRate, 95, "")    // Maximum resist rate, any level
-RULE_INT(Spells, PVPRootMinLevelResistThreshold, 60, "")    // MR needed to achieve resist rate softcap at level 10
-RULE_INT(Spells, PVPRootMaxLevelResistThreshold, 100, "")    // MR needed to achieve resist rate softcap at level 50
-RULE_INT(Spells, PVPRootResistRateSoftcap, 92, "")    // Resist rate achieved by meeting the threshold for level
-RULE_INT(Spells, PVPRootOverCapReturn, 50, "")        // Amount of MR needed over softcap threshold for each additional percent of resist rate (up to max, "")
 RULE_BOOL(Spells, ClickyCasting, true, "")
 RULE_BOOL(Spells, NoBeneficialDetrimentalBlock, true, "")
 RULE_INT(Spells, BuffDurationModifier, 1, "")
-
-RULE_INT(Spells, PVPBardMezResistRateSoftcap, 1, "")
-RULE_INT(Spells, PVPBardMezMinResistRate, 1, "")
-RULE_INT(Spells, PVPBardMezMinLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPBardMezMaxLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPBardMezOverCapReturn, 1, "")
-RULE_INT(Spells, PVPBardMezMaxResistRate, 1, "")
-
-RULE_INT(Spells, PVPMezResistRateSoftcap, 1, "")
-RULE_INT(Spells, PVPMezMinResistRate, 1, "")
-RULE_INT(Spells, PVPMezMinLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPMezMaxLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPMezOverCapReturn, 1, "")
-RULE_INT(Spells, PVPMezMaxResistRate, 1, "")
-
-RULE_INT(Spells, PVPSnareResistRateSoftcap, 1, "")
-RULE_INT(Spells, PVPSnareMinResistRate, 1, "")
-RULE_INT(Spells, PVPSnareMinLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPSnareMaxLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPSnareOverCapReturn, 1, "")
-RULE_INT(Spells, PVPSnareMaxResistRate, 1, "")
-
-RULE_INT(Spells, PVPPureStunResistRateSoftcap, 1, "")
-RULE_INT(Spells, PVPPureStunMinResistRate, 1, "")
-RULE_INT(Spells, PVPPureStunMinLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPPureStunMaxLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPPureStunOverCapReturn, 1, "")
-RULE_INT(Spells, PVPPureStunMaxResistRate, 1, "")
-
-RULE_INT(Spells, PVPBlindResistRateSoftcap, 1, "")
-RULE_INT(Spells, PVPBlindMinResistRate, 1, "")
-RULE_INT(Spells, PVPBlindMinLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPBlindMaxLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPBlindOverCapReturn, 1, "")
-RULE_INT(Spells, PVPBlindMaxResistRate, 1, "")
-
-RULE_INT(Spells, PVPResistDebuffResistRateSoftcap, 1, "")
-RULE_INT(Spells, PVPResistDebuffMinResistRate, 1, "")
-RULE_INT(Spells, PVPResistDebuffMinLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPResistDebuffMaxLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPResistDebuffOverCapReturn, 1, "")
-RULE_INT(Spells, PVPResistDebuffMaxResistRate, 1, "")
-
-RULE_INT(Spells, PVPSlowResistRateSoftcap, 1, "")
-RULE_INT(Spells, PVPSlowMinResistRate, 1, "")
-RULE_INT(Spells, PVPSlowMinLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPSlowMaxLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPSlowOverCapReturn, 1, "")
-RULE_INT(Spells, PVPSlowMaxResistRate, 1, "")
-
-RULE_INT(Spells, PVPPoisonResistRateSoftcap, 1, "")
-RULE_INT(Spells, PVPPoisonMinResistRate, 1, "")
-RULE_INT(Spells, PVPPoisonMinLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPPoisonMaxLevelResistThreshold, 1, "")
-RULE_INT(Spells, PVPPoisonOverCapReturn, 1, "")
-RULE_INT(Spells, PVPPoisonMaxResistRate, 1, "")
-
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Combat)
@@ -875,20 +813,6 @@ RULE_CATEGORY_END()
 
 RULE_CATEGORY(Command)
 RULE_BOOL(Command, DyeCommandRequiresDyes, false, "Enable this to require a Prismatic Dye (32557) each time someone uses #dye.")
-RULE_CATEGORY_END()
-
-RULE_CATEGORY(RoZ)
-RULE_BOOL(RoZ, NewPVPSpellResists, true, "")
-RULE_INT(RoZ, NewPVPSpellResistSplitThreshold, 100, "")
-RULE_INT(RoZ, NewPVPSpellResistSplitResistRate, 45, "")
-RULE_INT(RoZ, NewPVPSpellResistSoftcapThreshold, 255, "")
-RULE_INT(RoZ, NewPVPSpellResistSoftcapResistRate, 67, "")
-RULE_INT(RoZ, NewPVPSpellResistHardcapThreshold, 500, "")
-RULE_INT(RoZ, NewPVPSpellResistHardcapResistRate, 75, "")
-RULE_INT(RoZ, NewPVPSpellResistFullResistRollOffset, 50, "")
-RULE_INT(RoZ, NewPVPSpellResistDamageReductionVariance, 15, "")
-RULE_BOOL(RoZ, DoTPartials, true, "")
-RULE_BOOL(RoZ, PVPStunComponentSeparation, true, "")
 RULE_CATEGORY_END()
 
 #undef RULE_CATEGORY
