@@ -10285,60 +10285,48 @@ void Client::SendPVPLeaderBoard()
 int Client::CalculatePVPPoints(Client* killer, Client* victim)
 {
 	float points;
-	float pvp_points;
 	float level_difference;
 	float scoring_modifier;
 	float infamy_difference;
-	int divider_modifier;
+	float level_weight_mult;
+	int base_score;
 	int currentkillerpoints;
 	int vitality = victim->m_pp.PVPVitality;
 
+	base_score = 2; //todo make a rule for this
+  level_weight_mult = 2;
 	level_difference = victim->GetLevel() - killer->GetLevel();
-
 	infamy_difference = victim->m_pp.PVPInfamy - killer->m_pp.PVPInfamy;
 
+	//original calc
 	//scoring_modifier = ( level_difference + infamy_difference + (vitality*=-1.0) ) * 5.0;
 
+	scoring_modifier = (level_weight_mult*level_difference + infamy_difference);
+	points = (base_score + scoring_modifier);
+
 	//if the level difference is positive, don't let infamy difference zero out score
-	if(level_difference>0 && infamy_difference<0 ){
-		scoring_modifier = level_difference;
+	if(level_difference>=0 && points<(base_score+level_difference) ){
+		points = (base_score + level_difference);
 	}
 
-	scoring_modifier = ( level_difference + infamy_difference );
+	//don't zero out score for large infamy differences in an even fight
+	if(level_difference==0 && points<0){
+		points = 1;
+	}
 
-	//if there is 1 kill in the last 24 hrs, divier_modifier = 1, if 2 kills, =2.
-	//if there are 0 kills in the last 24 hrs, =1.
-	divider_modifier = database.GetKillCount24Hours(killer, victim);
-
-	// naez: only get points per 24 hour yt
-	if (divider_modifier > 1) {
+	//Brynja:if there are 0 or 1 kill in the last 24 hrs, GetKillCount24Hours = 1,
+	//if 2 kills, =2.
+	if (database.GetKillCount24Hours(killer, victim) > 1) {
 		return 0;
 	}
 
-	points = (2 + scoring_modifier); //brynja: base score of 2
-
 	currentkillerpoints = killer->m_pp.PVPCurrentPoints;
 
-        if (divider_modifier > 1) {	 //brynja: is this whole thing redundant?
-            for (int i=divider_modifier; i > 0; i--)
-            {
-                points = points / 2;
+	if (points < 0) {
+		points = 0;
+	}
 
-                if (points < 1.0) {
-                    pvp_points = (divider_modifier + scoring_modifier) * divider_modifier / 5;
-				} else {
-                    pvp_points = points;
-				}
-            }
-        } else {
-           pvp_points = points;
-        }
-
-		if (pvp_points < 0) {
-			pvp_points = 0;
-		}
-
-	return (int)pvp_points;
+	return (int)points;
 }
 void Client::HandlePVPDeath(void)
 {
