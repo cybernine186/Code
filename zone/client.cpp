@@ -269,8 +269,8 @@ Client::Client(EQStreamInterface* ieqs)
 	if (RuleI(World, PVPSettings) > 0) SendPVPStats();
 
 	if (WorldPVPMinLevel() > 0 && level >= WorldPVPMinLevel() && m_pp.pvp == 0) SetPVP(true, false);
-	
-	
+
+
 	dynamiczone_removal_timer.Disable();
 
 	//for good measure:
@@ -4296,7 +4296,7 @@ void Client::LevelFirst(uint32 p_race, uint32 p_class, uint16 level) {
 							"leveled_date = UNIX_TIMESTAMP(), account_status = %i",
 							GetName(), p_race, p_class, level, Admin());
 		auto results = database.QueryDatabase(query);
-		
+
 		//parse->EventPlayer(EVENT_SERVERFIRST_LEVEL, this, "", 0);
 	}
 }
@@ -10054,14 +10054,14 @@ void Client::Fling(float value, float target_x, float target_y, float target_z, 
 
 //CanPvP returns true if provided player can attack this player
 bool Client::CanPvP(Client *c) {
-	
+
 	// No Target
-	if (c == nullptr) 
+	if (c == nullptr)
 	{
 		LogDebug("Client::CanPvP other was null");
 		return false;
 	}
-	
+
 	// protect GMs by default, (this one sided logic should allow GM to smack people tho)
 	if (c->GetGM())
 	{
@@ -10075,7 +10075,7 @@ bool Client::CanPvP(Client *c) {
 		LogDebug("Client::CanPvP everyone was dueling, FIGHT");
 		return true;
 	}
-	
+
 	// Is PVP Disabled, otherwise continue with pvp checks
 	if(RuleI(World, PVPSettings) == 0)
 		return false;
@@ -10090,39 +10090,39 @@ bool Client::CanPvP(Client *c) {
 	{
 		LogDebug("Client::CanPvP World:WorldPVPMinLevel Passed, Level [{}], Target Level [{}], Min Level Rule [{}]", GetLevel(), c->GetLevel(), WorldPVPMinLevel());
 	}
-	
+
 	// Is VZ/TZ Ruleset turned on and is target on opposing team
 	if(!WorldPVPUseTeamsBySizeBasedPVP(c))
 		return false;
-	
+
 	// Is Guild based ruleset turned on and is target on opposing guild
 	if(!WorldPVPUseGuildBasedPVP(c))
 		return false;
-	
+
 	// Is SZ Ruleset turned on and is target on opposing deity (Good vs Evil)
 	if(!WorldPVPUseDeityBasedPVP(c))
 		return false;
 
 	if(!PVPLevelDifference(c))
 		return false;
-	
+
 	return true;
 }
 
 bool Client::PVPLevelDifference(Client *c)
 {
 	int rule_level_diff = RuleI(World, PVPLevelDifference);
-	
+
 	// If rule is set to anything other than 0 its custom
 	if(rule_level_diff == 0) {
-		if(RuleI(World, PVPSettings) == 1) 
+		if(RuleI(World, PVPSettings) == 1)
 		{
 			rule_level_diff = 4;
 		}
 		// Vallon/Tallon Zek
 		else if(RuleI(World, PVPSettings) == 2)
 		{
-			rule_level_diff = 8; 
+			rule_level_diff = 8;
 		}
 		// Sullon Zek
 		else if(RuleI(World, PVPSettings) == 4)
@@ -10131,7 +10131,7 @@ bool Client::PVPLevelDifference(Client *c)
 			return true;
 		}
 	}
-	
+
 	LogDebug("Client::CanPvP World:PVPLevelDifference Rule Level Diff: [{}], Level: [{}], Other Level: [{}]", rule_level_diff, GetLevel(), c->GetLevel());
 
 	// Compare Levels
@@ -10140,55 +10140,55 @@ bool Client::PVPLevelDifference(Client *c)
 		LogDebug("Client::CanPvP World:PVPLevelDifference Failed, Failed Difference [{}]", abs(GetLevel() - c->GetLevel()));
 		return false;
 	}
-	
+
 	LogDebug("Client::CanPvP World:PVPLevelDifference Passed");
 	return true;
 }
 
 bool Client::WorldPVPUseGuildBasedPVP(Client *c)
 {
-	
+
 	if(RuleI(World, PVPSettings) != 3)
 		return true;
-	
+
 	if((GuildID() == c->GuildID()) && (IsInAGuild() && c->IsInAGuild()))
 	{
 		LogDebug("Client::CanPvP World:WorldPVPUseGuildBasedPVP Failed, Client [{}], Other [{}], IsInAGuild [{}], IsInAGuild Other [{}]", GuildID(), c->GuildID(), IsInAGuild(), c->IsInAGuild());
 		return false;
 	}
-	
+
 	LogDebug("Client::CanPvP World:WorldPVPUseGuildBasedPVP Passed, Client [{}], Other [{}]", GuildID(), c->GuildID());
 	return true;
 }
 
 bool Client::WorldPVPUseTeamsBySizeBasedPVP(Client *c)
 {
-	
+
 	if(RuleI(World, PVPSettings) != 2)
 		return true;
-	
+
 	if(GetPVPRaceTeamBySize() == c->GetPVPRaceTeamBySize())
 	{
 		LogDebug("Client::CanPvP World:WorldPVPUseTeamsBySizeBasedPVP Failed, Client [{}], Other [{}]", GetPVPRaceTeamBySize(), c->GetPVPRaceTeamBySize());
 		return false;
 	}
-	
+
 	LogDebug("Client::CanPvP World:WorldPVPUseTeamsBySizeBasedPVP Passed, Client [{}], Other [{}]", GetPVPRaceTeamBySize(), c->GetPVPRaceTeamBySize());
 	return true;
 }
 
 bool Client::WorldPVPUseDeityBasedPVP(Client *c)
 {
-	
+
 	if(RuleI(World, PVPSettings) != 4)
 		return true;
-	
+
 	if(GetAlignment() == c->GetAlignment())
 	{
 		LogDebug("Client::CanPvP World:WorldPVPUseDeityBasedPVP Failed, Client [{}], Other [{}]", GetAlignment(), c->GetAlignment());
 		return false;
 	}
-	
+
 	LogDebug("Client::CanPvP World:WorldPVPUseDeityBasedPVP Passed, Client [{}], Other [{}]", GetAlignment(), c->GetAlignment());
 	return true;
 }
@@ -10196,7 +10196,7 @@ bool Client::WorldPVPUseDeityBasedPVP(Client *c)
 int Client::WorldPVPMinLevel()
 {
 	int rule_min_level = RuleI(World, PVPMinLevel);
-	
+
 	// If rule is set to anything other than 0 its custom
 	if(rule_min_level == 0)
 	{
@@ -10205,15 +10205,15 @@ int Client::WorldPVPMinLevel()
 			case 1: // Rallos Zek
 				rule_min_level = 6;
 			break;
-			
+
 			case 2: // Vallon/Tallon Zek (Size)
 				rule_min_level = 6;
 			break;
-			
+
 			case 3: // Vallon/Tallon Zek (Guild)
 				rule_min_level = 6;
 			break;
-			
+
 			case 4: // Sullon Zek
 				rule_min_level = 6;
 			break;
@@ -10224,14 +10224,14 @@ int Client::WorldPVPMinLevel()
 
 //GetAlignment returns 0 = neutral, 1 = good, 2 = evil, used for pvp sullon zek rules
 int Client::GetAlignment() {
-	if (GetDeity() == EQ::deity::DeityErollisiMarr || 
+	if (GetDeity() == EQ::deity::DeityErollisiMarr ||
 		GetDeity() == EQ::deity::DeityMithanielMarr ||
-		GetDeity() == EQ::deity::DeityRodcetNife || 
-		GetDeity() == EQ::deity::DeityQuellious || 
+		GetDeity() == EQ::deity::DeityRodcetNife ||
+		GetDeity() == EQ::deity::DeityQuellious ||
 		GetDeity() == EQ::deity::DeityTunare) return 1; //good
 	if (GetDeity() == EQ::deity::DeityBertoxxulous ||
 		GetDeity() == EQ::deity::DeityCazicThule ||
-		GetDeity() == EQ::deity::DeityInnoruuk || 
+		GetDeity() == EQ::deity::DeityInnoruuk ||
 		GetDeity() == EQ::deity::DeityRallosZek) return 2; //evil
 	return 0; //neutral
 }
@@ -10272,7 +10272,7 @@ void Client::SendPVPStats()
 	QueuePacket(outapp);
 	safe_delete(outapp);
 }
-void Client::SendPVPLeaderBoard() 
+void Client::SendPVPLeaderBoard()
 {
 	auto outapp = new EQApplicationPacket(OP_PVPLeaderBoardReply, sizeof(PVPLeaderBoard_Struct));
 	PVPLeaderBoard_Struct *pvplb = (PVPLeaderBoard_Struct *)outapp->pBuffer;
@@ -10282,39 +10282,48 @@ void Client::SendPVPLeaderBoard()
 	QueuePacket(outapp);
 	safe_delete(outapp);
 }
-int Client::CalculatePVPPoints(Client* killer, Client* victim) 
+int Client::CalculatePVPPoints(Client* killer, Client* victim)
 {
 	float points;
 	float pvp_points;
 	float level_difference;
-	float scoring_modifier;	
+	float scoring_modifier;
 	float infamy_difference;
 	int divider_modifier;
 	int currentkillerpoints;
 	int vitality = victim->m_pp.PVPVitality;
 
 	level_difference = victim->GetLevel() - killer->GetLevel();
-	
-	infamy_difference = victim->m_pp.PVPInfamy - killer->m_pp.PVPInfamy; 
-		
-	scoring_modifier = ( level_difference + infamy_difference + (vitality*=-1.0) ) * 5.0;
-		
+
+	infamy_difference = victim->m_pp.PVPInfamy - killer->m_pp.PVPInfamy;
+
+	//scoring_modifier = ( level_difference + infamy_difference + (vitality*=-1.0) ) * 5.0;
+
+	//if the level difference is positive, don't let infamy difference zero out score
+	if(level_difference>0 && infamy_difference<0 ){
+		scoring_modifier = level_difference;
+	}
+
+	scoring_modifier = ( level_difference + infamy_difference );
+
+	//if there is 1 kill in the last 24 hrs, divier_modifier = 1, if 2 kills, =2.
+	//if there are 0 kills in the last 24 hrs, =1.
 	divider_modifier = database.GetKillCount24Hours(killer, victim);
 
 	// naez: only get points per 24 hour yt
-	if (divider_modifier > 1) { // > 1 cuz if theres 0 the func returns 1
+	if (divider_modifier > 1) {
 		return 0;
 	}
-		
-	points = (100 + scoring_modifier);
+
+	points = (2 + scoring_modifier); //brynja: base score of 2
 
 	currentkillerpoints = killer->m_pp.PVPCurrentPoints;
-	
-        if (divider_modifier > 1) {	
+
+        if (divider_modifier > 1) {	 //brynja: is this whole thing redundant?
             for (int i=divider_modifier; i > 0; i--)
-            {		
+            {
                 points = points / 2;
-              		  
+
                 if (points < 1.0) {
                     pvp_points = (divider_modifier + scoring_modifier) * divider_modifier / 5;
 				} else {
@@ -10334,11 +10343,11 @@ int Client::CalculatePVPPoints(Client* killer, Client* victim)
 void Client::HandlePVPDeath(void)
 {
 	m_pp.PVPDeaths += 1;
-	m_pp.PVPVitality = 10;	
+	m_pp.PVPInfamy = 0;
 	m_pp.PVPCurrentDeathStreak += 1;
 
 	if (m_pp.PVPCurrentDeathStreak > m_pp.PVPWorstDeathStreak)
-		m_pp.PVPWorstDeathStreak = m_pp.PVPCurrentDeathStreak;		
+		m_pp.PVPWorstDeathStreak = m_pp.PVPCurrentDeathStreak;
 
 	Save();
 
@@ -10352,8 +10361,17 @@ void Client::HandlePVPKill(uint32 Points)
 	m_pp.PVPKills +=1;
 	m_pp.PVPCurrentKillStreak +=1;
 	m_pp.PVPCurrentDeathStreak = 0;
+	//todo: add a rule for infamy cap
+	//if(m_pp.PVPInfamy<RuleB(World, PVPInfamyCap))
+	//{
+	//m_pp.PVPInfamy += 1;
+	//}
+	if(m_pp.PVPInfamy<16)
+	{
+	m_pp.PVPInfamy += 1; //Brynja: for now, 1 killstreak = 1 infamy, capped at 16
+	}
 
-	if (m_pp.PVPCurrentKillStreak > m_pp.PVPBestKillStreak)	
+	if (m_pp.PVPCurrentKillStreak > m_pp.PVPBestKillStreak)
 		m_pp.PVPBestKillStreak = m_pp.PVPCurrentKillStreak;
 
 	Save();
@@ -10839,17 +10857,6 @@ void Client::ApplyWeaponsStance()
 		weaponstance.spellbonus_enabled = false;
 	}
 }
-
-uint16 Client::GetDoorToolEntityId() const
-{
-	return m_door_tool_entity_id;
-}
-
-void Client::SetDoorToolEntityId(uint16 door_tool_entity_id)
-{
-	Client::m_door_tool_entity_id = door_tool_entity_id;
-}
-
 int GetMaxSpellGems()
 {
 	if (RuleI(Character, MaxSpellGems) > 0)
@@ -10861,4 +10868,13 @@ int GetMaxSpellGems()
 	}
 
 	return EQ::spells::SPELL_GEM_COUNT;
+}
+uint16 Client::GetDoorToolEntityId() const
+{
+	return m_door_tool_entity_id;
+}
+
+void Client::SetDoorToolEntityId(uint16 door_tool_entity_id)
+{
+	Client::m_door_tool_entity_id = door_tool_entity_id;
 }
