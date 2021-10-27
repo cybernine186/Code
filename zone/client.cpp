@@ -10290,7 +10290,6 @@ int Client::CalculatePVPPoints(Client* killer, Client* victim)
 	float infamy_difference;
 	float level_weight_mult;
 	int base_score;
-	int currentkillerpoints;
 	int vitality = victim->m_pp.PVPVitality;
 
 	base_score = 2; //todo make a rule for this
@@ -10319,8 +10318,6 @@ int Client::CalculatePVPPoints(Client* killer, Client* victim)
 	if (database.GetKillCount24Hours(killer, victim) > 1) {
 		return 0;
 	}
-
-	currentkillerpoints = killer->m_pp.PVPCurrentPoints;
 
 	if (points < 0) {
 		points = 0;
