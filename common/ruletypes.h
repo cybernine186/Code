@@ -263,6 +263,8 @@ RULE_INT(World, PVPPetDamageMitigation, 100, "In PvP, pet damage is mitigated by
 RULE_INT(World, PVPMeleeMitigation, 67, "In PvP, melee is mitigated by this amount")
 RULE_INT(World, PVPSpellMitigation, 67, "In PvP, spells are mitigated by this amount")
 RULE_INT(World, PVPRangedMitigation, 80, "In PvP, ranged attacks (archery/throwing) is mitigated by this amount")
+RULE_INT(World, PVPBaseScore, 2, "PVP Point System Base Score")
+RULE_INT(World, PVPInfamyCap, 8, "PVP Point System Infamy Cap")
 RULE_BOOL (World, IsGMPetitionWindowEnabled, false, "Setting whether the GM petition window is available")
 RULE_INT (World, FVNoDropFlag, 0, "Sets the Firiona Vie settings on the client, allowing trading of no-drop items. 1=for all players, 2=for GM only")
 RULE_BOOL (World, IPLimitDisconnectAll, false, "Disconnect all current clients by IP if they go over the IP limit.  This should allow people to quickly reconnect in the case of dead sessions waiting to timeout")
