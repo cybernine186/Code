@@ -10342,7 +10342,7 @@ void Client::HandlePVPKill(uint32 Points)
 	m_pp.PVPCurrentKillStreak +=1;
 	m_pp.PVPCurrentDeathStreak = 0;
 
-	if (m_pp.PVPInfamy < RuleI(World, PVPPointInfamy))
+	if (m_pp.PVPInfamy < RuleI(World, PVPInfamyCap))
 		m_pp.PVPInfamy += 1; //Brynja: for now, 1 killstreak = 1 infamy
 
 	if (m_pp.PVPCurrentKillStreak > m_pp.PVPBestKillStreak)
