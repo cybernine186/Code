@@ -1776,11 +1776,15 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			args.push_back(victim);
 
 			int pvp_points = 0;
+			int accountcount = database.SharedAccountCount(killerMob->CastToClient()->AccountID(), victim->AccountID());
 
-			// naez: 0 points for farming your own
-			if (killerMob->CastToClient()->GetIP() != victim->CastToClient()->GetIP()) {
+			if (accountcount == 0)
 				pvp_points = CalculatePVPPoints(killerMob->CastToClient(), victim);
-			}
+
+			if (pvp_points > RuleI(World, PVPPointsCap))
+				pvp_points = RuleI(World, PVPPointsCap);
+
+			LogDebug("Client::Death(): accountcount [{}], pvp_points [{}]", accountcount, pvp_points);
 
 			if (killerMob->CastToClient()->isgrouped) {
 				Group* group = entity_list.GetGroupByClient(killerMob->CastToClient());

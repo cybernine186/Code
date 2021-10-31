@@ -187,9 +187,7 @@ public:
 	bool	SetAccountStatus(const std::string& account_name, int16 status);
 	bool	SetLocalPassword(uint32 accid, const char* password);
 	bool	UpdateLiveChar(char* charname, uint32 account_id);
-
 	int16	CheckStatus(uint32 account_id);
-
 	uint64  GetAccountCRC1EQGame(uint32 accid);
 	uint64  GetAccountCRC2SkillCaps(uint32 accid);
 	uint64  GetAccountCRC3BaseData(uint32 accid);
@@ -200,14 +198,11 @@ public:
 	uint32	CreateAccount(const char* name, const char* password, int16 status, const char* loginserver, uint32 lsaccount_id);
 	uint32	GetAccountIDFromLSID(const std::string& in_loginserver_id, uint32 in_loginserver_account_id, char* in_account_name = 0, int16* in_status = 0);
 	uint8	GetAgreementFlag(uint32 acctid);
-
 	void	GetAccountFromID(uint32 id, char* oAccountName, int16* oStatus);
 	void	SetAgreementFlag(uint32 acctid);
-
 	int		GetIPExemption(std::string account_ip);
-
+	int		SharedAccountCount(int account, int account2);
 	int		GetInstanceID(uint32 char_id, uint32 zone_id);
-
 
 	/* Groups */
 

@@ -10284,23 +10284,23 @@ void Client::SendPVPLeaderBoard()
 }
 int Client::CalculatePVPPoints(Client* killer, Client* victim)
 {
-	float points;
-	float level_difference;
-	float scoring_modifier;
-	float infamy_difference;
-	float level_weight_mult;
+	int points, level_difference, scoring_modifier, infamy_difference;
 	int base_score = RuleI(World, PVPBaseScore);
-	int vitality = victim->m_pp.PVPVitality;
+	int level_weight_mult = RuleI(World, PVPLevelWeightMultiplier);
+	
+	level_difference = abs(victim->GetLevel() - killer->GetLevel());
+	infamy_difference = abs((int)victim->m_pp.PVPInfamy - (int)killer->m_pp.PVPInfamy);
 
-	level_weight_mult = 2;
-	level_difference = victim->GetLevel() - killer->GetLevel();
-	infamy_difference = victim->m_pp.PVPInfamy - killer->m_pp.PVPInfamy;
+	LogDebug("Client::CalculatePVPPoints(): base_score [{}], level_weight_mult [{}], level_difference [{}], infamy_difference [{}], victim_infamy [{}], killer_infamy [{}]", 
+		base_score, level_weight_mult, level_difference, infamy_difference, victim->m_pp.PVPInfamy, killer->m_pp.PVPInfamy);
 
 	//original calc
 	//scoring_modifier = ( level_difference + infamy_difference + (vitality*=-1.0) ) * 5.0;
 
 	scoring_modifier = (level_weight_mult * level_difference + infamy_difference);
 	points = (base_score + scoring_modifier);
+
+	LogDebug("Client::CalculatePVPPoints(): scoring_modifier [{}], points [{}]", scoring_modifier, points);
 
 	//if the level difference is positive, don't let infamy difference zero out score
 	if (level_difference >= 0 && points < (base_score + level_difference))
@@ -10312,18 +10312,21 @@ int Client::CalculatePVPPoints(Client* killer, Client* victim)
 
 	//Brynja:if there are 0 or 1 kill in the last 24 hrs, GetKillCount24Hours = 1,
 	//if 2 kills, =2.
-	if (database.GetKillCount24Hours(killer, victim) > 1)
-		return 0;
+	if (database.GetKillCountDays(killer, victim, RuleI(World, PVPKillCountDays)) > RuleI(World, PVPKillCountDaysLimit))
+		points = 0;
 
 	if (points < 0)
 		points = 0;
 
-	return (int)points;
+	LogDebug("Client::CalculatePVPPoints(): final points [{}]", points);
+
+	return points;
 }
 void Client::HandlePVPDeath(void)
 {
 	m_pp.PVPDeaths += 1;
 	m_pp.PVPInfamy = 0;
+	m_pp.PVPCurrentKillStreak = 0;
 	m_pp.PVPCurrentDeathStreak += 1;
 
 	if (m_pp.PVPCurrentDeathStreak > m_pp.PVPWorstDeathStreak)
@@ -10342,8 +10345,8 @@ void Client::HandlePVPKill(uint32 Points)
 	m_pp.PVPCurrentKillStreak +=1;
 	m_pp.PVPCurrentDeathStreak = 0;
 
-	if (m_pp.PVPInfamy < RuleI(World, PVPInfamyCap))
-		m_pp.PVPInfamy += 1; //Brynja: for now, 1 killstreak = 1 infamy
+	if (m_pp.PVPInfamy < RuleI(World, PVPInfamyCap) && Points > 0)
+		m_pp.PVPInfamy += 1;
 
 	if (m_pp.PVPCurrentKillStreak > m_pp.PVPBestKillStreak)
 		m_pp.PVPBestKillStreak = m_pp.PVPCurrentKillStreak;

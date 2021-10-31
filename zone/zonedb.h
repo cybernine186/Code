@@ -573,9 +573,7 @@ public:
 	void GetPVPLeaderBoard(Client* client, PVPLeaderBoard_Struct* pvplb, const char* sort_by);
 	void GetPVPLeaderBoardDetails(PVPLeaderBoardDetailsReply_Struct* pvplbdr, const char* name);
 	void GetPVPKillsLast24Hours(Client* client, PVPStats_Struct* pvps);	
-
-	int GetKillCount24Hours(Client* killer, Client* victim);	
-	
+	int GetKillCountDays(Client* killer, Client* victim, int days = 1);	
 	bool RegisterPVPKill(Client* victim, Client* killer, uint32 points);
 	
 	/*
