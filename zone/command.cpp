@@ -2999,12 +2999,12 @@ void command_castspell(Client *c, const Seperator *sep)
 		else
 			if (c->GetTarget() == 0)
 				if(c->Admin() >= commandInstacast)
-					c->SpellFinished(spellid, 0, EQ::spells::CastingSlot::Item, 0, -1, spells[spellid].ResistDiff);
+					c->SpellFinished(spellid, 0, EQ::spells::CastingSlot::Item, 0, -1, spells[spellid].resist_mod);
 				else
 					c->CastSpell(spellid, 0, EQ::spells::CastingSlot::Item, 0);
 			else
 				if(c->Admin() >= commandInstacast)
-					c->SpellFinished(spellid, c->GetTarget(), EQ::spells::CastingSlot::Item, 0, -1, spells[spellid].ResistDiff);
+					c->SpellFinished(spellid, c->GetTarget(), EQ::spells::CastingSlot::Item, 0, -1, spells[spellid].resist_mod);
 				else
 					c->CastSpell(spellid, c->GetTarget()->GetID(), EQ::spells::CastingSlot::Item, 0);
 	}
@@ -5615,8 +5615,8 @@ void command_spellinfo(Client *c, const Seperator *sep)
 		c->Message(Chat::White, "  cast_time: %d",  s->cast_time);
 		c->Message(Chat::White, "  recovery_time: %d",  s->recovery_time);
 		c->Message(Chat::White, "  recast_time: %d",  s->recast_time);
-		c->Message(Chat::White, "  buffdurationformula: %d",  s->buffdurationformula);
-		c->Message(Chat::White, "  buffduration: %d",  s->buffduration);
+		c->Message(Chat::White, "  durationbase: %d",  s->durationbase);
+		c->Message(Chat::White, "  durationcap: %d",  s->durationcap);
 		c->Message(Chat::White, "  AEDuration: %d",  s->AEDuration);
 		c->Message(Chat::White, "  mana: %d",  s->mana);
 		c->Message(Chat::White, "  base[12]: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d",  s->base[0], s->base[1], s->base[2], s->base[3], s->base[4], s->base[5], s->base[6], s->base[7], s->base[8], s->base[9], s->base[10], s->base[11]);

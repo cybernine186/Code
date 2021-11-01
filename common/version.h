@@ -31,10 +31,10 @@
  * Every time a Database SQL is added to Github increment CURRENT_BINARY_DATABASE_VERSION
  * number and make sure you update the manifest
  *
- * Manifest: https://github.com/EQEmu/Server/blob/master/utils/sql/db_update_manifest.txt
+ * Manifest: https://raw.githubusercontent.com/cybernine186/Code/master/utils/sql/db_update_manifest.txt
  */
 
-#define CURRENT_BINARY_DATABASE_VERSION 9172
+#define CURRENT_BINARY_DATABASE_VERSION 9178
 
 #ifdef BOTS
 	#define CURRENT_BINARY_BOTS_DATABASE_VERSION 9028

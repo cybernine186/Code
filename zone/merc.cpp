@@ -3900,22 +3900,22 @@ MercSpell Merc::GetBestMercSpellForNukeByTargetResists(Merc* caster, Mob* target
 			// Assuming all the spells have been loaded into this list by level and in descending order
 
 			if(IsPureNukeSpell(mercSpellListItr->spellid) && !IsAENukeSpell(mercSpellListItr->spellid) && CheckSpellRecastTimers(caster, mercSpellListItr->spellid)) {
-				if(selectLureNuke && (spells[mercSpellListItr->spellid].ResistDiff < lureResisValue)) {
+				if(selectLureNuke && (spells[mercSpellListItr->spellid].resist_mod < lureResisValue)) {
 					spellSelected = true;
 				}
 				else {
 					if(((target->GetMR() < target->GetCR()) || (target->GetMR() < target->GetFR())) && (GetSpellResistType(mercSpellListItr->spellid) == RESIST_MAGIC)
-						&& (spells[mercSpellListItr->spellid].ResistDiff > lureResisValue))
+						&& (spells[mercSpellListItr->spellid].resist_mod > lureResisValue))
 					{
 						spellSelected = true;
 					}
 					else if(((target->GetCR() < target->GetMR()) || (target->GetCR() < target->GetFR())) && (GetSpellResistType(mercSpellListItr->spellid) == RESIST_COLD)
-						&& (spells[mercSpellListItr->spellid].ResistDiff > lureResisValue))
+						&& (spells[mercSpellListItr->spellid].resist_mod > lureResisValue))
 					{
 						spellSelected = true;
 					}
 					else if(((target->GetFR() < target->GetCR()) || (target->GetFR() < target->GetMR())) && (GetSpellResistType(mercSpellListItr->spellid) == RESIST_FIRE)
-						&& (spells[mercSpellListItr->spellid].ResistDiff > lureResisValue))
+						&& (spells[mercSpellListItr->spellid].resist_mod > lureResisValue))
 					{
 						spellSelected = true;
 					}

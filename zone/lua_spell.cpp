@@ -96,12 +96,12 @@ uint32 Lua_Spell::GetRecastTime() {
 
 uint32 Lua_Spell::GetBuffdurationFormula() {
 	Lua_Safe_Call_Int();
-	return self->buffdurationformula;
+	return self->durationbase;
 }
 
 uint32 Lua_Spell::GetBuffDuration() {
 	Lua_Safe_Call_Int();
-	return self->buffduration;
+	return self->durationcap;
 }
 
 uint32 Lua_Spell::GetAEDuration() {
@@ -281,7 +281,7 @@ int Lua_Spell::GetUninterruptable() {
 
 int Lua_Spell::GetResistDiff() {
 	Lua_Safe_Call_Int();
-	return self->ResistDiff;
+	return self->resist_mod;
 }
 
 int Lua_Spell::GetRecourseLink() {
@@ -336,17 +336,17 @@ int Lua_Spell::GetNumHits() {
 
 int Lua_Spell::GetPVPResistBase() {
 	Lua_Safe_Call_Int();
-	return self->pvpresistbase;
+	return self->pvp_resist_mod;
 }
 
 int Lua_Spell::GetPVPResistCalc() {
 	Lua_Safe_Call_Int();
-	return self->pvpresistcalc;
+	return self->pvp_resist_per_level;
 }
 
 int Lua_Spell::GetPVPResistCap() {
 	Lua_Safe_Call_Int();
-	return self->pvpresistcap;
+	return self->pvp_resist_cap;
 }
 
 int Lua_Spell::GetSpellCategory() {
@@ -511,7 +511,7 @@ luabind::scope lua_register_spell() {
 		.def("CastTime", &Lua_Spell::GetCastTime)
 		.def("RecoveryTime", &Lua_Spell::GetRecoveryTime)
 		.def("RecastTime", &Lua_Spell::GetRecastTime)
-		.def("BuffdurationFormula", &Lua_Spell::GetBuffdurationFormula)
+		.def("durationbase", &Lua_Spell::GetBuffdurationFormula)
 		.def("BuffDuration", &Lua_Spell::GetBuffDuration)
 		.def("AEDuration", &Lua_Spell::GetAEDuration)
 		.def("Mana", &Lua_Spell::GetMana)
@@ -538,7 +538,7 @@ luabind::scope lua_register_spell() {
 		.def("DisallowSit", &Lua_Spell::GetDisallowSit)
 		.def("Deities", &Lua_Spell::GetDeities)
 		.def("Uninterruptable", &Lua_Spell::GetUninterruptable)
-		.def("ResistDiff", &Lua_Spell::GetResistDiff)
+		.def("resist_mod", &Lua_Spell::GetResistDiff)
 		.def("RecourseLink", &Lua_Spell::GetRecourseLink)
 		.def("ShortBuffBox", &Lua_Spell::GetShortBuffBox)
 		.def("DescNum", &Lua_Spell::GetDescNum)
@@ -549,9 +549,9 @@ luabind::scope lua_register_spell() {
 		.def("HateAdded", &Lua_Spell::GetHateAdded)
 		.def("EndurUpkeep", &Lua_Spell::GetEndurUpkeep)
 		.def("NumHits", &Lua_Spell::GetNumHits)
-		.def("PVPResistBase", &Lua_Spell::GetPVPResistBase)
-		.def("PVPResistCalc", &Lua_Spell::GetPVPResistCalc)
-		.def("PVPResistCap", &Lua_Spell::GetPVPResistCap)
+		.def("pvp_resist_mod", &Lua_Spell::GetPVPResistBase)
+		.def("pvp_resist_per_level", &Lua_Spell::GetPVPResistCalc)
+		.def("pvp_resist_cap", &Lua_Spell::GetPVPResistCap)
 		.def("SpellCategory", &Lua_Spell::GetSpellCategory)
 		.def("PVPDuration", &Lua_Spell::GetPVPDuration)
 		.def("PVPDurationCap", &Lua_Spell::GetPVPDurationCap)

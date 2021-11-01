@@ -286,7 +286,7 @@ int32 Mob::GetActSpellHealing(uint16 spell_id, int32 value, Mob* target) {
 	value += int(value_BaseEffect*GetFocusEffect(focusFcAmplifyMod, spell_id) / 100);
 
 	// Instant Heals
-	if(spells[spell_id].buffduration < 1) {
+	if(spells[spell_id].durationcap < 1) {
 
 		chance += itembonuses.CriticalHealChance + spellbonuses.CriticalHealChance + aabonuses.CriticalHealChance;
 
@@ -683,7 +683,7 @@ bool Client::UseDiscipline(uint32 spell_id, uint32 target) {
 	}
 
 	// the client does this check before calling CastSpell, should prevent discs being eaten
-	if (spell.buffdurationformula != 0 && spell.targettype == ST_Self && HasDiscBuff())
+	if (spell.durationbase != 0 && spell.targettype == ST_Self && HasDiscBuff())
 		return false;
 
 	//Check the disc timer

@@ -129,6 +129,8 @@
 #define SPELL_SPIRITUAL_ECHO 1248
 #define SPELL_BRISTLING_ARMAMENT 1249
 #define SPELL_WATON_DESTRUCTION 1250
+#define SPELL_TRANSLOCATE_GROUP 1334
+#define SPELL_TRANSLOCATE 1422
 #define SPELL_ACTING_MAGIC_RESIST_I 1900
 #define SPELL_ACTING_FIRE_RESIST_I 1901
 #define SPELL_ACTING_COLD_RESIST_I 1902
@@ -154,6 +156,7 @@
 #define SPELL_ACTING_SPIRIT_II 1922
 #define SPELL_RESURRECTION_SICKNESS 756
 #define SPELL_RESURRECTION_SICKNESS4 757
+#define SPELL_TELEPORT 3243
 #define SPELL_RESURRECTION_SICKNESS2 5249
 #define SPELL_REVIVAL_SICKNESS 13087
 #define SPELL_RESURRECTION_SICKNESS3 37624
@@ -1246,8 +1249,8 @@ struct SPDat_Spell_Struct
 /* 013 */	uint32 cast_time; // Cast time -- CASTINGTIME
 /* 014 */	uint32 recovery_time; // Recovery time -- RECOVERYDELAY
 /* 015 */	uint32 recast_time; // Recast same spell time -- SPELLDELAY
-/* 016 */	uint32 buffdurationformula; // -- DURATIONBASE
-/* 017 */	uint32 buffduration; // -- DURATIONCAP
+/* 016 */	uint32 durationbase; // -- DURATIONBASE
+/* 017 */	uint32 durationcap; // -- DURATIONCAP
 /* 018 */	uint32 AEDuration;	// sentinel, rain of something -- IMPACTDURATION
 /* 019 */	uint16 mana; // Mana Used -- MANACOST
 /* 020 */	int base[EFFECT_COUNT];	//various purposes -- BASEAFFECT1 .. BASEAFFECT12
@@ -1289,7 +1292,7 @@ struct SPDat_Spell_Struct
 /* 144 */	int16 new_icon;	// Spell icon used by the client in uifiles/default/spells??.tga, both for spell gems & buff window. Looks to depreciate icon & memicon -- NEW_ICON
 /* 145 */	//int16 spellanim; // Doesn't look like it's the same as #doanim, so not sure what this is, particles I think -- SPELL_EFFECT_INDEX
 /* 146 */	bool uninterruptable;	// Looks like anything != 0 is uninterruptable. Values are mostly -1, 0, & 1 (Fetid Breath = 90?) -- NO_INTERRUPT
-/* 147 */	int16 ResistDiff; // -- RESIST_MOD
+/* 147 */	int16 resist_mod; // -- RESIST_MOD
 /* 148 */	bool dot_stacking_exempt; // -- NOT_STACKABLE_DOT
 /* 149 */	//int deletable; // -- DELETE_OK
 /* 150 */	uint16 RecourseLink; // -- REFLECT_SPELLINDEX
@@ -1305,8 +1308,8 @@ struct SPDat_Spell_Struct
 /* 160 */	//bool feedbackable; // -- FEEDBACKABLE
 /* 161 */	bool reflectable; // -- REFLECTABLE
 /* 162 */	int bonushate; // -- HATE_MOD
-/* 163 */	//int resist_per_level; // -- RESIST_PER_LEVEL
-/* 164 */	//int resist_cap; // for most spells this appears to mimic ResistDiff -- RESIST_CAP
+/* 163 */	int resist_per_level; // -- RESIST_PER_LEVEL
+/* 164 */	int resist_cap; // for most spells this appears to mimic resist_mod -- RESIST_CAP
 /* 165 */	bool ldon_trap; //Flag found on all LDON trap / chest related spells. -- AFFECT_INANIMATE
 /* 166 */	int EndurCost; // -- STAMINA_COST
 /* 167 */	int8 EndurTimerIndex; // bad name, used for all spells -- TIMER_INDEX
@@ -1316,12 +1319,12 @@ struct SPDat_Spell_Struct
 /* 174 */	int EndurUpkeep; // -- ENDUR_UPKEEP
 /* 175 */	int numhitstype; // defines which type of behavior will tick down the numhit counter. -- LIMITED_USE_TYPE
 /* 176 */	int numhits; // -- LIMITED_USE_COUNT
-/* 177 */	int pvpresistbase; // -- PVP_RESIST_MOD
-/* 178 */	int pvpresistcalc; // -- PVP_RESIST_PER_LEVEL
-/* 179 */	int pvpresistcap; // -- PVP_RESIST_CAP
+/* 177 */	int pvp_resist_mod; // -- PVP_RESIST_MOD
+/* 178 */	int pvp_resist_per_level; // -- PVP_RESIST_PER_LEVEL
+/* 179 */	int pvp_resist_cap; // -- PVP_RESIST_CAP
 /* 180 */	int spell_category; // -- GLOBAL_GROUP
-/* 181 */	int pvp_duration; // buffdurationformula for PvP -- PVP_DURATION
-/* 182 */	int pvp_duration_cap; // buffduration for PvP -- PVP_DURATION_CAP
+/* 181 */	int pvp_duration; // durationbase for PvP -- PVP_DURATION
+/* 182 */	int pvp_duration_cap; // durationcap for PvP -- PVP_DURATION_CAP
 /* 183 */	int pcnpc_only_flag; // valid values are 0, 1 = PCs (and mercs), and 2 = NPCs (and not mercs) -- PCNPC_ONLY_FLAG
 /* 184 */	bool cast_not_standing; // this is checked in the client's EQ_Spell::IsCastWhileInvisSpell, this also blocks SE_InterruptCasting from affecting this spell -- CAST_NOT_STANDING
 /* 185 */	bool can_mgb; // 0=no, -1 or 1 = yes -- CAN_MGB
@@ -1463,6 +1466,7 @@ bool IsPartialDeathSaveSpell(uint16 spell_id);
 bool IsShadowStepSpell(uint16 spell_id);
 bool IsSuccorSpell(uint16 spell_id);
 bool IsTeleportSpell(uint16 spell_id);
+bool IsTranslocateSpell(uint16 spell_id);
 bool IsGateSpell(uint16 spell_id);
 bool IsPlayerIllusionSpell(uint16 spell_id); // seveian 2008-09-23
 bool IsLDoNObjectSpell(uint16 spell_id);
@@ -1496,6 +1500,7 @@ bool IsCastWhileInvis(uint16 spell_id);
 bool IsEffectIgnoredInStacking(int spa);
 bool IsFocusLimit(int spa);
 bool SpellRequiresTarget(int targettype);
+bool IsInstrumentModAppliedToSpellEffect(int32 spell_id, int effect);
 
 int CalcPetHp(int levelb, int classb, int STA = 75);
 int GetSpellEffectDescNum(uint16 spell_id);
