@@ -3356,7 +3356,6 @@ int Mob::CalcSpellEffectValue(uint16 spell_id, int effect_id, int caster_level, 
 
 	if (pvp)
 	{
-		formula = spells[spell_id].pvpresistcalc;
 		durationformula = spells[spell_id].pvp_duration;
 		duration = spells[spell_id].pvp_duration_cap;
 	}
@@ -3616,33 +3615,6 @@ snare has both of them negative, yet their range should work the same:
 			if (caster_level > 50)
 				result += updownsign * 25 * (caster_level - 50);
 			break;
-		
-		// Voidd: Need formulas verified from 133-136, these are specific for PVP
-		// Continued the formula method from 124-132 as it seemed logical for these missing formulas
-		case 133:	// check sign
-			result = ubase;
-			if (caster_level > 50)
-				result += updownsign * 30 * (caster_level - 50);
-			break;
-						
-		case 134:	// check sign
-			result = ubase;
-			if (caster_level > 50)
-				result += updownsign * 35 * (caster_level - 50);
-			break;
-									
-		case 135:	// check sign
-			result = ubase;
-			if (caster_level > 50)
-				result += updownsign * 40 * (caster_level - 50);
-			break;
-									
-		case 136:	// check sign
-			result = ubase;
-			if (caster_level > 50)
-				result += updownsign * 45 * (caster_level - 50);
-			break;
-		// End of Need formulas verified
 
 		case 137:	// used in berserker AA desperation
 			result = ubase - static_cast<int>((ubase * (GetHPRatio() / 100.0f)));
