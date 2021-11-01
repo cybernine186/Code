@@ -1563,7 +1563,7 @@ bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, b
 		float chance = aabonuses.SkillAttackProc[SBIndex::SKILLPROC_CHANCE] / 1000.0f;
 		if (zone->random.Roll(chance))
 			SpellFinished(aabonuses.SkillAttackProc[SBIndex::SKILLPROC_SPELL_ID], other, EQ::spells::CastingSlot::Item, 0, -1,
-						  spells[aabonuses.SkillAttackProc[SBIndex::SKILLPROC_SPELL_ID]].ResistDiff);
+						  spells[aabonuses.SkillAttackProc[SBIndex::SKILLPROC_SPELL_ID]].resist_mod);
 	}
 	other->Damage(this, my_hit.damage_done, SPELL_UNKNOWN, my_hit.skill, true, -1, false, m_specialattacks);
 
@@ -2333,7 +2333,7 @@ void NPC::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::SkillTyp
 			if (IsLDoNTrapped())
 			{
 				MessageString(Chat::Red, LDON_ACCIDENT_SETOFF2);
-				SpellFinished(GetLDoNTrapSpellID(), other, EQ::spells::CastingSlot::Item, 0, -1, spells[GetLDoNTrapSpellID()].ResistDiff, false);
+				SpellFinished(GetLDoNTrapSpellID(), other, EQ::spells::CastingSlot::Item, 0, -1, spells[GetLDoNTrapSpellID()].resist_mod, false);
 				SetLDoNTrapSpellID(0);
 				SetLDoNTrapped(false);
 				SetLDoNTrapDetected(false);

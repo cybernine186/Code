@@ -1254,7 +1254,7 @@ bool Mob::PassCharismaCheck(Mob* caster, uint16 spell_id) {
 
 	if(!caster) return false;
 
-	if(spells[spell_id].ResistDiff <= -600)
+	if(spells[spell_id].resist_mod <= -600)
 		return true;
 
 	float resist_check = 0;

@@ -221,7 +221,7 @@ public:
 					if (spells[spell_id].SpellAffectIndex != 12)
 						break;
 					entry_prototype = new STCharmEntry();
-					if (spells[spell_id].ResistDiff <= -1000)
+					if (spells[spell_id].resist_mod <= -1000)
 						entry_prototype->SafeCastToCharm()->dire = true;
 					break;
 				case SE_Teleport:
@@ -786,15 +786,15 @@ private:
 				continue;
 			case BCEnum::SpT_Charm:
 				spell_list->sort([](const STBaseEntry* l, const STBaseEntry* r) {
-					if (LT_SPELLS(l, r, ResistDiff))
+					if (LT_SPELLS(l, r, resist_mod))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && LT_STBASE(l, r, target_type))
+					if (EQ_SPELLS(l, r, resist_mod) && LT_STBASE(l, r, target_type))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && EQ_STBASE(l, r, target_type) && GT_SPELLS_EFFECT_ID(l, r, max, 1))
+					if (EQ_SPELLS(l, r, resist_mod) && EQ_STBASE(l, r, target_type) && GT_SPELLS_EFFECT_ID(l, r, max, 1))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 1) && LT_STBASE(l, r, spell_level))
+					if (EQ_SPELLS(l, r, resist_mod) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 1) && LT_STBASE(l, r, spell_level))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 1) && EQ_STBASE(l, r, spell_level) && LT_STBASE(l, r, caster_class))
+					if (EQ_SPELLS(l, r, resist_mod) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 1) && EQ_STBASE(l, r, spell_level) && LT_STBASE(l, r, caster_class))
 						return true;
 
 					return false;
@@ -895,15 +895,15 @@ private:
 				continue;
 			case BCEnum::SpT_Lull:
 				spell_list->sort([](const STBaseEntry* l, const STBaseEntry* r) {
-					if (LT_SPELLS(l, r, ResistDiff))
+					if (LT_SPELLS(l, r, resist_mod))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && LT_STBASE(l, r, target_type))
+					if (EQ_SPELLS(l, r, resist_mod) && LT_STBASE(l, r, target_type))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && EQ_STBASE(l, r, target_type) && GT_SPELLS_EFFECT_ID(l, r, max, 3))
+					if (EQ_SPELLS(l, r, resist_mod) && EQ_STBASE(l, r, target_type) && GT_SPELLS_EFFECT_ID(l, r, max, 3))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 3) && LT_STBASE(l, r, spell_level))
+					if (EQ_SPELLS(l, r, resist_mod) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 3) && LT_STBASE(l, r, spell_level))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 3) && EQ_STBASE(l, r, spell_level) && LT_STBASE(l, r, caster_class))
+					if (EQ_SPELLS(l, r, resist_mod) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 3) && EQ_STBASE(l, r, spell_level) && LT_STBASE(l, r, caster_class))
 						return true;
 
 					return false;
@@ -911,15 +911,15 @@ private:
 				continue;
 			case BCEnum::SpT_Mesmerize:
 				spell_list->sort([](const STBaseEntry* l, const STBaseEntry* r) {
-					if (GT_SPELLS(l, r, ResistDiff))
+					if (GT_SPELLS(l, r, resist_mod))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && LT_STBASE(l, r, target_type))
+					if (EQ_SPELLS(l, r, resist_mod) && LT_STBASE(l, r, target_type))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && EQ_STBASE(l, r, target_type) && GT_SPELLS_EFFECT_ID(l, r, max, 1))
+					if (EQ_SPELLS(l, r, resist_mod) && EQ_STBASE(l, r, target_type) && GT_SPELLS_EFFECT_ID(l, r, max, 1))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 1) && GT_STBASE(l, r, spell_level))
+					if (EQ_SPELLS(l, r, resist_mod) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 1) && GT_STBASE(l, r, spell_level))
 						return true;
-					if (EQ_SPELLS(l, r, ResistDiff) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 1) && EQ_STBASE(l, r, spell_level) && LT_STBASE(l, r, caster_class))
+					if (EQ_SPELLS(l, r, resist_mod) && EQ_STBASE(l, r, target_type) && EQ_SPELLS_EFFECT_ID(l, r, max, 1) && EQ_STBASE(l, r, spell_level) && LT_STBASE(l, r, caster_class))
 						return true;
 
 					return false;
@@ -1167,7 +1167,7 @@ private:
 
 				spell_dump << StringFormat(" /mn:%05u/RD:%06i/zt:%02i/d#:%06i/td#:%05i/ed#:%05i/SAI:%03u",
 					spells[spell_id].mana,
-					spells[spell_id].ResistDiff,
+					spells[spell_id].resist_mod,
 					spells[spell_id].zonetype,
 					spells[spell_id].descnum,
 					spells[spell_id].typedescnum,

@@ -4964,7 +4964,7 @@ void Client::HandleLDoNOpen(NPC *target)
 			if(target->GetLDoNTrapSpellID() != 0)
 			{
 				MessageString(Chat::Red, LDON_ACCIDENT_SETOFF2);
-				target->SpellFinished(target->GetLDoNTrapSpellID(), this, EQ::spells::CastingSlot::Item, 0, -1, spells[target->GetLDoNTrapSpellID()].ResistDiff);
+				target->SpellFinished(target->GetLDoNTrapSpellID(), this, EQ::spells::CastingSlot::Item, 0, -1, spells[target->GetLDoNTrapSpellID()].resist_mod);
 				target->SetLDoNTrapSpellID(0);
 				target->SetLDoNTrapped(false);
 				target->SetLDoNTrapDetected(false);
@@ -5086,7 +5086,7 @@ void Client::HandleLDoNDisarm(NPC *target, uint16 skill, uint8 type)
 				break;
 			case -1:
 				MessageString(Chat::Red, LDON_ACCIDENT_SETOFF2);
-				target->SpellFinished(target->GetLDoNTrapSpellID(), this, EQ::spells::CastingSlot::Item, 0, -1, spells[target->GetLDoNTrapSpellID()].ResistDiff);
+				target->SpellFinished(target->GetLDoNTrapSpellID(), this, EQ::spells::CastingSlot::Item, 0, -1, spells[target->GetLDoNTrapSpellID()].resist_mod);
 				target->SetLDoNTrapSpellID(0);
 				target->SetLDoNTrapped(false);
 				target->SetLDoNTrapDetected(false);
@@ -5105,7 +5105,7 @@ void Client::HandleLDoNPickLock(NPC *target, uint16 skill, uint8 type)
 			if(target->IsLDoNTrapped())
 			{
 				MessageString(Chat::Red, LDON_ACCIDENT_SETOFF2);
-				target->SpellFinished(target->GetLDoNTrapSpellID(), this, EQ::spells::CastingSlot::Item, 0, -1, spells[target->GetLDoNTrapSpellID()].ResistDiff);
+				target->SpellFinished(target->GetLDoNTrapSpellID(), this, EQ::spells::CastingSlot::Item, 0, -1, spells[target->GetLDoNTrapSpellID()].resist_mod);
 				target->SetLDoNTrapSpellID(0);
 				target->SetLDoNTrapped(false);
 				target->SetLDoNTrapDetected(false);
@@ -10312,7 +10312,7 @@ int Client::CalculatePVPPoints(Client* killer, Client* victim)
 
 	//Brynja:if there are 0 or 1 kill in the last 24 hrs, GetKillCount24Hours = 1,
 	//if 2 kills, =2.
-	if (database.GetKillCountDays(killer, victim, RuleI(World, PVPKillCountDays)) > RuleI(World, PVPKillCountDaysLimit))
+	if (database.GetKillCountDays(killer, victim, RuleI(World, PVPKillCountDays) > RuleI(World, PVPKillCountDaysLimit)))
 		points = 0;
 
 	if (points < 0)
@@ -10345,8 +10345,8 @@ void Client::HandlePVPKill(uint32 Points)
 	m_pp.PVPCurrentKillStreak +=1;
 	m_pp.PVPCurrentDeathStreak = 0;
 
-	if (m_pp.PVPInfamy < RuleI(World, PVPInfamyCap) && Points > 0)
-		m_pp.PVPInfamy += 1;
+	if (m_pp.PVPInfamy < RuleI(World, PVPInfamyCap))
+		m_pp.PVPInfamy += 1; //Brynja: for now, 1 killstreak = 1 infamy
 
 	if (m_pp.PVPCurrentKillStreak > m_pp.PVPBestKillStreak)
 		m_pp.PVPBestKillStreak = m_pp.PVPCurrentKillStreak;

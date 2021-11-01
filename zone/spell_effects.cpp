@@ -1297,7 +1297,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 				snprintf(effect_desc, _EDLEN, "Invulnerability");
 #endif
 				if(spell_id==4789) // Touch of the Divine - Divine Save
-					buffs[buffslot].ticsremaining = spells[spell_id].buffduration; // Prevent focus/aa buff extension
+					buffs[buffslot].ticsremaining = spells[spell_id].durationcap; // Prevent focus/aa buff extension
 
 				SetInvul(true);
 				break;
@@ -1322,7 +1322,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 				snprintf(effect_desc, _EDLEN, "Blind: %+i", effect_value);
 #endif
 				// this should catch the cures
-				if (BeneficialSpell(spell_id) && spells[spell_id].buffduration == 0)
+				if (BeneficialSpell(spell_id) && spells[spell_id].durationcap == 0)
 					BuffFadeByEffect(SE_Blind);
 				else if (!IsClient())
 					CalculateNewFearpoint();
@@ -2875,7 +2875,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 
 				if (caster && IsValidSpell(spells[spell_id].base2[i])){
 					if(zone->random.Roll(spells[spell_id].base[i]))
-						caster->SpellFinished(spells[spell_id].base2[i], this, EQ::spells::CastingSlot::Item, 0, -1, spells[spells[spell_id].base2[i]].ResistDiff);
+						caster->SpellFinished(spells[spell_id].base2[i], this, EQ::spells::CastingSlot::Item, 0, -1, spells[spells[spell_id].base2[i]].resist_mod);
 				}
 				break;
 			}
@@ -2951,7 +2951,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 					uint32 best_spell_id = caster->CastToClient()->GetHighestScribedSpellinSpellGroup(spells[spell_id].base2[i]);
 
 					if (caster && IsValidSpell(best_spell_id))
-						caster->SpellFinished(best_spell_id, this, EQ::spells::CastingSlot::Item, 0, -1, spells[best_spell_id].ResistDiff);
+						caster->SpellFinished(best_spell_id, this, EQ::spells::CastingSlot::Item, 0, -1, spells[best_spell_id].resist_mod);
 				}
 				break;
 			}
@@ -2962,7 +2962,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 					break;
 
 				if (zone->random.Roll(spells[spell_id].base[i]) && IsValidSpell(spells[spell_id].base2[i]))
-						caster->SpellFinished(spells[spell_id].base2[i], this, EQ::spells::CastingSlot::Item, 0, -1, spells[spells[spell_id].base2[i]].ResistDiff);
+						caster->SpellFinished(spells[spell_id].base2[i], this, EQ::spells::CastingSlot::Item, 0, -1, spells[spells[spell_id].base2[i]].resist_mod);
 
 				break;
 			}
@@ -3353,15 +3353,13 @@ int Mob::CalcSpellEffectValue(uint16 spell_id, int effect_id, int caster_level, 
 	formula = spells[spell_id].formula[effect_id];
 	base = spells[spell_id].base[effect_id];
 	max = spells[spell_id].max[effect_id];
+	durationformula = spells[spell_id].durationbase;
+	duration = spells[spell_id].durationcap;
 
 	if (pvp)
 	{
 		durationformula = spells[spell_id].pvp_duration;
 		duration = spells[spell_id].pvp_duration_cap;
-	}
-	else {
-		durationformula = spells[spell_id].buffdurationformula;
-		duration = spells[spell_id].buffduration;
 	}
 
 	LogSpells("Mob::CalcSpellEffectValue():  PVP [{}], formula [{}], base [{}], max [{}], caster_level [{}], spell_id [{}], duration [{}], ticsremaining [{}]", pvp, formula, base, max, caster_level, spell_id, duration, ticsremaining);
@@ -3451,7 +3449,7 @@ snare has both of them negative, yet their range should work the same:
 	}
 
 	if (durationformula < 0)
-		durationformula = spells[spell_id].buffdurationformula;
+		durationformula = spells[spell_id].durationbase;
 
 	LogSpells("Mob::CalcSpellEffectValue_formula(): spell [{}], formula [{}], base [{}], max [{}], lvl [{}], durationformula [{}], duration [{}], Up/Down [{}]",
 		spell_id, formula, base, max, caster_level, durationformula, duration, updownsign);
@@ -3720,8 +3718,8 @@ void Mob::BuffProcess()
 				continue;
 
 			// DF_Permanent uses -1 DF_Aura uses -4 but we need to check negatives for some spells for some reason?
-			if (spells[buffs[buffs_i].spellid].buffdurationformula != DF_Permanent &&
-			    spells[buffs[buffs_i].spellid].buffdurationformula != DF_Aura) {
+			if (spells[buffs[buffs_i].spellid].durationbase != DF_Permanent &&
+			    spells[buffs[buffs_i].spellid].durationbase != DF_Aura) {
 				if(!zone->BuffTimersSuspended() || !IsSuspendableSpell(buffs[buffs_i].spellid))
 				{
 					--buffs[buffs_i].ticsremaining;
@@ -4006,9 +4004,9 @@ void Mob::DoBuffTic(const Buffs_Struct &buff, int slot, Mob *caster)
 		case SE_CastOnFadeEffectAlways: {
 			if (buff.ticsremaining == 0) {
 				if(pvp)
-					SpellFinished(spells[buff.spellid].base[i], this, EQ::spells::CastingSlot::Item, 0, -1, spells[spells[buff.spellid].base[i]].pvpresistbase);
+					SpellFinished(spells[buff.spellid].base[i], this, EQ::spells::CastingSlot::Item, 0, -1, spells[spells[buff.spellid].base[i]].pvp_resist_mod);
 				else
-					SpellFinished(spells[buff.spellid].base[i], this, EQ::spells::CastingSlot::Item, 0, -1, spells[spells[buff.spellid].base[i]].ResistDiff);
+					SpellFinished(spells[buff.spellid].base[i], this, EQ::spells::CastingSlot::Item, 0, -1, spells[spells[buff.spellid].base[i]].resist_mod);
 			}
 			break;
 		}
@@ -4649,10 +4647,10 @@ int32 Client::CalcAAFocus(focusType type, const AA::Rank &rank, uint16 spell_id)
 				break;
 
 			case SE_LimitInstant:
-				if (base1 == 1 && spell.buffduration) { // Fail if not instant
+				if (base1 == 1 && spell.durationcap) { // Fail if not instant
 					LimitFailure = true;
 				}
-				if (base1 == 0 && (spell.buffduration == 0)) { // Fail if instant
+				if (base1 == 0 && (spell.durationcap == 0)) { // Fail if instant
 					LimitFailure = true;
 				}
 
@@ -4709,7 +4707,7 @@ int32 Client::CalcAAFocus(focusType type, const AA::Rank &rank, uint16 spell_id)
 				break;
 
 			case SE_LimitMinDur:
-				if (base1 > CalcBuffDuration_formula(GetLevel(), spell.buffdurationformula, spell.buffduration)) {
+				if (base1 > CalcBuffDuration_formula(GetLevel(), spell.durationbase, spell.durationcap)) {
 					LimitFailure = true;
 				}
 				break;
@@ -4870,7 +4868,7 @@ int32 Client::CalcAAFocus(focusType type, const AA::Rank &rank, uint16 spell_id)
 				break;
 
 			case SE_Ff_DurationMax:
-				if (base1 > spell.buffduration) {
+				if (base1 > spell.durationcap) {
 					LimitFailure = true;
 				}
 				break;
@@ -5287,10 +5285,10 @@ int32 Mob::CalcFocusEffect(focusType type, uint16 focus_id, uint16 spell_id, boo
 				break;
 
 			case SE_LimitInstant:
-				if (focus_spell.base[i] == 1 && spell.buffduration) { // Fail if not instant
+				if (focus_spell.base[i] == 1 && spell.durationcap) { // Fail if not instant
 					return 0;
 				}
-				if (focus_spell.base[i] == 0 && (spell.buffduration == 0)) { // Fail if instant
+				if (focus_spell.base[i] == 0 && (spell.durationcap == 0)) { // Fail if instant
 					return 0;
 				}
 
@@ -5355,7 +5353,7 @@ int32 Mob::CalcFocusEffect(focusType type, uint16 focus_id, uint16 spell_id, boo
 
 			case SE_LimitMinDur:
 				if (focus_spell.base[i] >
-					CalcBuffDuration_formula(GetLevel(), spell.buffdurationformula, spell.buffduration)) {
+					CalcBuffDuration_formula(GetLevel(), spell.durationbase, spell.durationcap)) {
 					return (0);
 				}
 				break;
@@ -5538,7 +5536,7 @@ int32 Mob::CalcFocusEffect(focusType type, uint16 focus_id, uint16 spell_id, boo
 				break;
 
 			case SE_Ff_DurationMax:
-				if (focus_spell.base[i] > spell.buffduration) {
+				if (focus_spell.base[i] > spell.durationcap) {
 					return 0;
 				}
 				break;
@@ -5879,7 +5877,7 @@ int32 Mob::CalcFocusEffect(focusType type, uint16 focus_id, uint16 spell_id, boo
 				EQ::spells::CastingSlot::Item,
 				0,
 				-1,
-				spells[Caston_spell_id].ResistDiff
+				spells[Caston_spell_id].resist_mod
 			);
 		}
 	}
@@ -5994,12 +5992,12 @@ bool Mob::TryTriggerOnCastProc(uint16 focusspellid, uint16 spell_id, uint16 proc
 	if (IsValidSpell(proc_spellid) && spell_id != focusspellid && spell_id != proc_spellid) {
 		Mob* proc_target = GetTarget();
 		if (proc_target) {
-			SpellFinished(proc_spellid, proc_target, EQ::spells::CastingSlot::Item, 0, -1, spells[proc_spellid].ResistDiff);
+			SpellFinished(proc_spellid, proc_target, EQ::spells::CastingSlot::Item, 0, -1, spells[proc_spellid].resist_mod);
 			return true;
 		}
 		// Edge cases where proc spell does not require a target such as PBAE, allows proc to still occur even if target potentially dead. Live spells exist with PBAE procs.
 		else if (!SpellRequiresTarget(proc_spellid)) {
-			SpellFinished(proc_spellid, this, EQ::spells::CastingSlot::Item, 0, -1, spells[proc_spellid].ResistDiff);
+			SpellFinished(proc_spellid, this, EQ::spells::CastingSlot::Item, 0, -1, spells[proc_spellid].resist_mod);
 			return true;
 		}
 	}
@@ -8284,10 +8282,10 @@ void Mob::TryTriggerThreshHold(int32 damage, int effect_id,  Mob* attacker){
 						if (IsValidSpell(spell_id)) {
 
 							if (IsBeneficialSpell(spell_id))
-								SpellFinished(spell_id, this, EQ::spells::CastingSlot::Item, 0, -1, spells[spell_id].ResistDiff);
+								SpellFinished(spell_id, this, EQ::spells::CastingSlot::Item, 0, -1, spells[spell_id].resist_mod);
 
 							else if(attacker)
-								SpellFinished(spell_id, attacker, EQ::spells::CastingSlot::Item, 0, -1, spells[spell_id].ResistDiff);
+								SpellFinished(spell_id, attacker, EQ::spells::CastingSlot::Item, 0, -1, spells[spell_id].resist_mod);
 						}
 					}
 				}
@@ -8329,13 +8327,13 @@ void Mob::CastSpellOnLand(Mob* caster, int32 spell_id)
 					if (ApplyFocusProcLimiter(buffs[i].spellid, i)) {
 						//Step 4: Cast spells
 						if (IsBeneficialSpell(trigger_spell_id)) {
-							SpellFinished(trigger_spell_id, this, EQ::spells::CastingSlot::Item, 0, -1, spells[trigger_spell_id].ResistDiff);
+							SpellFinished(trigger_spell_id, this, EQ::spells::CastingSlot::Item, 0, -1, spells[trigger_spell_id].resist_mod);
 						}
 						else {
 							Mob* current_target = GetTarget();
 							//For now don't let players cast detrimental effects on themselves if they are targeting themselves. Need to confirm behavior.
 							if (current_target && current_target->GetID() != GetID())
-								SpellFinished(trigger_spell_id, current_target, EQ::spells::CastingSlot::Item, 0, -1, spells[trigger_spell_id].ResistDiff);
+								SpellFinished(trigger_spell_id, current_target, EQ::spells::CastingSlot::Item, 0, -1, spells[trigger_spell_id].resist_mod);
 						}
 					}
 

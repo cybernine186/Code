@@ -432,6 +432,7 @@
 9175|2021_09_29_enable_disable_bard_melody.sql
 9176|2021_10_03_disable_item_focus_effect.sql
 9177|2021_10_08_autofire_tgb_rules.sql
+9178|2021_11_01_pvp_spells.sql
 
 # Upgrade conditions:
 # 	This won't be needed after this system is implemented, but it is used database that are not

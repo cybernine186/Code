@@ -1775,8 +1775,8 @@ void SharedDatabase::LoadSpells(void *data, int max_spells) {
 		sp[tempid].cast_time=atoi(row[13]);
 		sp[tempid].recovery_time=atoi(row[14]);
 		sp[tempid].recast_time=atoi(row[15]);
-		sp[tempid].buffdurationformula=atoi(row[16]);
-		sp[tempid].buffduration=atoi(row[17]);
+		sp[tempid].durationbase=atoi(row[16]);
+		sp[tempid].durationcap=atoi(row[17]);
 		sp[tempid].AEDuration=atoi(row[18]);
 		sp[tempid].mana=atoi(row[19]);
 
@@ -1836,7 +1836,7 @@ void SharedDatabase::LoadSpells(void *data, int max_spells) {
 
 		sp[tempid].new_icon=atoi(row[144]);
 		sp[tempid].uninterruptable=atoi(row[146]) != 0;
-		sp[tempid].ResistDiff=atoi(row[147]);
+		sp[tempid].resist_mod=atoi(row[147]);
 		sp[tempid].dot_stacking_exempt = atoi(row[148]) != 0;
 		sp[tempid].RecourseLink = atoi(row[150]);
 		sp[tempid].no_partial_resist = atoi(row[151]) != 0;
@@ -1849,7 +1849,8 @@ void SharedDatabase::LoadSpells(void *data, int max_spells) {
 		sp[tempid].npc_no_los = atoi(row[159]) != 0;
 		sp[tempid].reflectable = atoi(row[161]) != 0;
 		sp[tempid].bonushate=atoi(row[162]);
-
+		sp[tempid].resist_per_level=atoi(row[163]);
+		sp[tempid].resist_cap=atoi(row[164]);
 		sp[tempid].ldon_trap = atoi(row[165]) != 0;
 		sp[tempid].EndurCost=atoi(row[166]);
 		sp[tempid].EndurTimerIndex=atoi(row[167]);
@@ -1858,9 +1859,9 @@ void SharedDatabase::LoadSpells(void *data, int max_spells) {
 		sp[tempid].EndurUpkeep=atoi(row[174]);
 		sp[tempid].numhitstype = atoi(row[175]);
 		sp[tempid].numhits = atoi(row[176]);
-		sp[tempid].pvpresistbase=atoi(row[177]);
-		sp[tempid].pvpresistcalc=atoi(row[178]);
-		sp[tempid].pvpresistcap=atoi(row[179]);
+		sp[tempid].pvp_resist_mod=atoi(row[177]);
+		sp[tempid].pvp_resist_per_level=atoi(row[178]);
+		sp[tempid].pvp_resist_cap=atoi(row[179]);
 		sp[tempid].spell_category=atoi(row[180]);
 		sp[tempid].pvp_duration = atoi(row[181]);
 		sp[tempid].pvp_duration_cap = atoi(row[182]);

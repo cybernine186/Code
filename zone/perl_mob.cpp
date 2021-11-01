@@ -2796,7 +2796,7 @@ XS(XS_Mob_SpellFinished) {
 		if (items > 4) {
 			resist_diff = (int16) SvUV(ST(4));
 		} else {
-			resist_diff = spells[spell_id].ResistDiff;
+			resist_diff = spells[spell_id].resist_mod;
 		}
 
 		THIS->SpellFinished(spell_id, spell_target, EQ::spells::CastingSlot::Item, mana_cost, -1, resist_diff);

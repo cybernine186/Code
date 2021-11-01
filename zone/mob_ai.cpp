@@ -2929,7 +2929,7 @@ DBnpcspells_Struct *ZoneDatabase::GetNPCSpells(uint32 iDBSpellsID)
 			if (row[9])
 				entry.resist_adjust = atoi(row[9]);
 			else if (IsValidSpell(spell_id))
-				entry.resist_adjust = spells[spell_id].ResistDiff;
+				entry.resist_adjust = spells[spell_id].resist_mod;
 
 			spell_set.entries.push_back(entry);
 		}

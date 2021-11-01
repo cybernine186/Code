@@ -198,7 +198,7 @@ void Mob::DoSpecialAttackDamage(Mob *who, EQ::skills::SkillType skill, int32 bas
 		float chance = aabonuses.SkillAttackProc[SBIndex::SKILLPROC_CHANCE] / 1000.0f;
 		if (zone->random.Roll(chance))
 			SpellFinished(aabonuses.SkillAttackProc[SBIndex::SKILLPROC_SPELL_ID], who, EQ::spells::CastingSlot::Item, 0, -1,
-						  spells[aabonuses.SkillAttackProc[SBIndex::SKILLPROC_SPELL_ID]].ResistDiff);
+						  spells[aabonuses.SkillAttackProc[SBIndex::SKILLPROC_SPELL_ID]].resist_mod);
 	}
 
 	who->Damage(this, my_hit.damage_done, SPELL_UNKNOWN, skill, false);
@@ -1036,7 +1036,7 @@ void Mob::ProjectileAttack()
 					if (ProjectileAtk[i].skill == EQ::skills::SkillConjuration) {
 						if (IsValidSpell(ProjectileAtk[i].wpn_dmg))
 							SpellOnTarget(ProjectileAtk[i].wpn_dmg, target, false, true,
-								      spells[ProjectileAtk[i].wpn_dmg].ResistDiff,
+								      spells[ProjectileAtk[i].wpn_dmg].resist_mod,
 								      true);
 					} else {
 						CastToNPC()->DoRangedAttackDmg(
@@ -1056,7 +1056,7 @@ void Mob::ProjectileAttack()
 					else if (ProjectileAtk[i].skill == EQ::skills::SkillConjuration &&
 						 IsValidSpell(ProjectileAtk[i].wpn_dmg))
 						SpellOnTarget(ProjectileAtk[i].wpn_dmg, target, false, true,
-							      spells[ProjectileAtk[i].wpn_dmg].ResistDiff, true);
+							      spells[ProjectileAtk[i].wpn_dmg].resist_mod, true);
 				}
 			}
 
@@ -2228,7 +2228,7 @@ void Mob::DoMeleeSkillAttackDmg(Mob *other, uint16 weapon_damage, EQ::skills::Sk
 		float chance = aabonuses.SkillAttackProc[SBIndex::SKILLPROC_CHANCE] / 1000.0f;
 		if (zone->random.Roll(chance))
 			SpellFinished(aabonuses.SkillAttackProc[SBIndex::SKILLPROC_SPELL_ID], other, EQ::spells::CastingSlot::Item, 0, -1,
-						  spells[aabonuses.SkillAttackProc[SBIndex::SKILLPROC_SPELL_ID]].ResistDiff);
+						  spells[aabonuses.SkillAttackProc[SBIndex::SKILLPROC_SPELL_ID]].resist_mod);
 	}
 
 	other->Damage(this, damage, SPELL_UNKNOWN, skillinuse);
