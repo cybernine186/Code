@@ -5,3 +5,4 @@ ALTER TABLE `spells_new` CHANGE `pvpresistcalc` `pvp_resist_per_level` INT(11) N
 ALTER TABLE `spells_new` CHANGE `pvpresistcap` `pvp_resist_cap` INT(11) NOT NULL DEFAULT '-150';
 ALTER TABLE `spells_new` CHANGE `buffdurationformula` `durationbase` INT(11) NOT NULL DEFAULT '7';
 ALTER TABLE `spells_new` CHANGE `buffduration` `durationcap` INT(11) NOT NULL DEFAULT '65';
+ALTER TABLE `spells_new` CHANGE `ResistDiff` `resist_mod` INT(11) NOT NULL DEFAULT '-150';

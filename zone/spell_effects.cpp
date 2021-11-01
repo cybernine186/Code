@@ -721,32 +721,34 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 				if (!caster)	// can't be someone's pet unless we know who that someone is
 					break;
 
-				if(IsNPC())
-				{
+				if (IsClient() && caster->IsClient()) {
+					caster->Message(Chat::White, "Unable to cast charm on a fellow player.");
+					BuffFadeByEffect(SE_Charm);
+					break;
+				}
+				else if (IsCorpse()) {
+					caster->Message(Chat::White, "Unable to cast charm on a corpse.");
+					BuffFadeByEffect(SE_Charm);
+					break;
+				}
+				else if (caster->GetPet() != nullptr && caster->IsClient()) {
+					caster->Message(Chat::White, "You cannot charm something when you already have a pet.");
+					BuffFadeByEffect(SE_Charm);
+					break;
+				}
+				else if (GetOwner()) {
+					caster->Message(Chat::White, "You cannot charm someone else's pet!");
+					BuffFadeByEffect(SE_Charm);
+					break;
+				}
+
+				if (IsNPC()) {
 					CastToNPC()->SaveGuardSpotCharm();
 				}
 				InterruptSpell();
 				entity_list.RemoveDebuffs(this);
 				entity_list.RemoveFromTargets(this);
 				WipeHateList();
-
-				if (IsClient() && caster->IsClient()) {
-					caster->Message(Chat::White, "Unable to cast charm on a fellow player.");
-					BuffFadeByEffect(SE_Charm);
-					break;
-				} else if(IsCorpse()) {
-					caster->Message(Chat::White, "Unable to cast charm on a corpse.");
-					BuffFadeByEffect(SE_Charm);
-					break;
-				} else if(caster->GetPet() != nullptr && caster->IsClient()) {
-					caster->Message(Chat::White, "You cannot charm something when you already have a pet.");
-					BuffFadeByEffect(SE_Charm);
-					break;
-				} else if(GetOwner()) {
-					caster->Message(Chat::White, "You cannot charm someone else's pet!");
-					BuffFadeByEffect(SE_Charm);
-					break;
-				}
 
 				Mob *my_pet = GetPet();
 				if(my_pet)
@@ -836,7 +838,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 							MessageID = SENSE_ANIMAL;
 						}
 
-						Mob *ClosestMob = entity_list.GetClosestMobByBodyType(this, bt);
+						Mob *ClosestMob = entity_list.GetClosestMobByBodyType(this, bt, true);
 
 						if(ClosestMob)
 						{
@@ -1474,7 +1476,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 						spell.base[i],
 						gender_id
 					);
-					
+
 					if (spell.max[i] > 0) {
 						if (spell.base2[i] == 0) {
 							SendIllusionPacket(
@@ -1506,7 +1508,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 							spell.max[i]
 						);
 					}
-					SendAppearancePacket(AT_Size, race_size);					
+					SendAppearancePacket(AT_Size, race_size);
 				}
 
 				for (int x = EQ::textures::textureBegin; x <= EQ::textures::LastTintableTexture; x++) {
@@ -3345,16 +3347,17 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 
 int Mob::CalcSpellEffectValue(uint16 spell_id, int effect_id, int caster_level, uint32 instrument_mod, Mob *caster, int ticsremaining, uint16 caster_id, bool pvp)
 {
-	int formula, base, max, durationformula, effect_value, duration = 0;
 
 	if (!IsValidSpell(spell_id) || effect_id < 0 || effect_id >= EFFECT_COUNT)
 		return 0;
 	
-	formula = spells[spell_id].formula[effect_id];
-	base = spells[spell_id].base[effect_id];
-	max = spells[spell_id].max[effect_id];
-	durationformula = spells[spell_id].durationbase;
-	duration = spells[spell_id].durationcap;
+	int formula = spells[spell_id].formula[effect_id];
+	int base = spells[spell_id].base[effect_id];
+	int max = spells[spell_id].max[effect_id];
+	int durationformula = spells[spell_id].durationbase;
+	int duration = spells[spell_id].durationcap;
+	int effect_value = 0;
+	int oval = 0;
 
 	if (pvp)
 	{
@@ -3371,22 +3374,36 @@ int Mob::CalcSpellEffectValue(uint16 spell_id, int effect_id, int caster_level, 
 	effect_value = CalcSpellEffectValue_formula(formula, base, max, caster_level, spell_id, duration, durationformula, ticsremaining);
 
 	// this doesn't actually need to be a song to get mods, just the right skill
-	if (EQ::skills::IsBardInstrumentSkill(spells[spell_id].skill) &&
-	    spells[spell_id].effectid[effect_id] != SE_AttackSpeed &&
-	    spells[spell_id].effectid[effect_id] != SE_AttackSpeed2 &&
-	    spells[spell_id].effectid[effect_id] != SE_AttackSpeed3 &&
-	    spells[spell_id].effectid[effect_id] != SE_Lull &&
-	    spells[spell_id].effectid[effect_id] != SE_ChangeFrenzyRad &&
-	    spells[spell_id].effectid[effect_id] != SE_Harmony &&
-	    spells[spell_id].effectid[effect_id] != SE_CurrentMana &&
-	    spells[spell_id].effectid[effect_id] != SE_ManaRegen_v2 &&
-		spells[spell_id].effectid[effect_id] != SE_AddFaction) {
+	if (EQ::skills::IsBardInstrumentSkill(spells[spell_id].skill)
+		&& IsInstrumentModAppliedToSpellEffect(spell_id, spells[spell_id].effectid[effect_id])) {
 
-		int oval = effect_value;
-		int mod = ApplySpellEffectiveness(spell_id, instrument_mod, true, caster_id);
-		effect_value = effect_value * mod / 10;
-		LogSpells("Mob::CalcSpellEffectValue(): Effect value [{}] altered with bard modifier of [{}] to yeild [{}]",
-			oval, mod, effect_value);
+			oval = effect_value;
+			effect_value = effect_value * static_cast<int>(instrument_mod) / 10;
+			LogSpells("Effect value [{}] altered with bard modifier of [{}] to yeild [{}]",
+				oval, instrument_mod, effect_value);
+	}
+
+	if (GetClass() != BARD) {
+
+		if (caster_id && instrument_mod > 10) {
+			//This is checked from Mob::ApplySpellBonuses, applied to buffs that receive bonuses. See above, must be in 10% intervals to work.
+			oval = effect_value;
+			effect_value = effect_value * static_cast<int>(instrument_mod) / 10;
+
+			LogSpells("Bonus Effect value [{}] altered with base effects modifier of [{}] to yeild [{}]",
+				oval, instrument_mod, effect_value);
+		}
+		else if (!caster_id) {
+			//This is checked from Mob::SpellEffects and applied to instant spells and runes.
+			if (caster && caster->HasBaseEffectFocus()) {
+				oval = effect_value;
+				int mod = caster->GetFocusEffect(focusFcBaseEffects, spell_id);
+				effect_value += effect_value * mod / 100;
+
+				LogSpells("Instant Effect value [{}] altered with base effects modifier of [{}] to yeild [{}]",
+					oval, mod, effect_value);
+			}
+		}
 	}
 
 	effect_value = mod_effect_value(effect_value, spell_id, spells[spell_id].effectid[effect_id], caster, caster_id);
@@ -4355,7 +4372,7 @@ void Mob::BuffFadeBySlot(int slot, bool iRecalcBonuses)
 						}
 						uint32 buff_count = GetMaxTotalSlots();
 						for (unsigned int j = 0; j < buff_count; j++) {
-							if (GetBuffs()[j].spellid != SPELL_UNKNOWN) {
+							if (IsValidSpell(GetBuffs()[j].spellid )) {
 								auto spell = spells[this->GetBuffs()[j].spellid];
 								if (spell.goodEffect == 0 && IsEffectInSpell(spell.id, SE_CurrentHP)) {
 									BuffFadeBySpellID(spell.id);
@@ -7102,17 +7119,7 @@ uint16 Mob::GetSpellEffectResistChance(uint16 spell_id)
 	return resist_chance;
 }
 
-bool Mob::TryDispel(uint8 caster_level, uint8 buff_level, int level_modifier)
-{
-
-	/*Live 5-20-14 Patch Note: Updated all spells which use Remove Detrimental and
-	Cancel Beneficial spell effects to use a new method. The chances for those spells to
-	affect their targets have not changed unless otherwise noted.*/
-
-	/*This should provide a somewhat accurate conversion between pre 5/14 base values and post.
-	until more information is avialble - Kayen*/
-	if (level_modifier >= 100)
-		level_modifier = level_modifier/100;
+bool Mob::TryDispel(uint8 caster_level, uint8 buff_level, int level_modifier){
 
 	//Dispels - Check level of caster agianst buffs level (level of the caster who cast the buff)
 	//Effect value of dispels are treated as a level modifier.
@@ -7139,7 +7146,6 @@ bool Mob::TryDispel(uint8 caster_level, uint8 buff_level, int level_modifier)
 	else
 		return false;
 }
-
 
 bool Mob::ImprovedTaunt(){
 
@@ -7179,7 +7185,7 @@ bool Mob::PassCastRestriction(int value)
 
 		Note: (ID 221 - 249) For effect seen in mage spell 'Shock of Many' which increases damage based on number of pets on targets hatelist. The way it is implemented
 		works for how our ROF2 spell file handles the effect where each slot fires individually, while on live it only takes the highest
-		value. In the future the way check is done will need to be adjusted to check a defined range instead of just great than. 
+		value. In the future the way check is done will need to be adjusted to check a defined range instead of just great than.
 	*/
 
 	if (value <= 0) {
@@ -7213,8 +7219,8 @@ bool Mob::PassCastRestriction(int value)
 			break;
 
 		case IS_BODY_TYPE_MISC:
-			if ((GetBodyType() == BT_Humanoid)  || (GetBodyType() == BT_Lycanthrope) || (GetBodyType() == BT_Giant) || 
-				(GetBodyType() == BT_RaidGiant) || (GetBodyType() == BT_RaidColdain) || (GetBodyType() == BT_Animal)|| 
+			if ((GetBodyType() == BT_Humanoid)  || (GetBodyType() == BT_Lycanthrope) || (GetBodyType() == BT_Giant) ||
+				(GetBodyType() == BT_RaidGiant) || (GetBodyType() == BT_RaidColdain) || (GetBodyType() == BT_Animal)||
 				(GetBodyType() == BT_Construct) || (GetBodyType() == BT_Dragon)		 || (GetBodyType() == BT_Insect)||
 				(GetBodyType() == BT_VeliousDragon) || (GetBodyType() == BT_Muramite) || (GetBodyType() == BT_Magical))
 				return true;
@@ -7353,7 +7359,7 @@ bool Mob::PassCastRestriction(int value)
 			if (IsHybridClass(GetClass()))
 				return true;
 			break;
-			
+
 		case IS_CLASS_WARRIOR:
 			if (GetClass() == WARRIOR)
 				return true;
@@ -7460,7 +7466,7 @@ bool Mob::PassCastRestriction(int value)
 				return true;
 			break;
 
-		case FRENZIED_BURNOUT_NOT_ACTIVE: 
+		case FRENZIED_BURNOUT_NOT_ACTIVE:
 			if (!HasBuffWithSpellGroup(SPELLGROUP_FRENZIED_BURNOUT))
 				return true;
 			break;
@@ -7469,7 +7475,7 @@ bool Mob::PassCastRestriction(int value)
 			if (GetHPRatio() > 75)
 				return true;
 			break;
-			
+
 		case IS_HP_LESS_THAN_20_PCT:
 			if (GetHPRatio() <= 20)
 				return true;
@@ -7616,27 +7622,27 @@ bool Mob::PassCastRestriction(int value)
 			if (GetHPRatio() > 25 && GetHPRatio() <= 35)
 				return true;
 			break;
-			
+
 		case IS_HP_BETWEEN_35_AND_45_PCT:
 			if (GetHPRatio() > 35 && GetHPRatio() <= 45)
 				return true;
 			break;
-			
+
 		case IS_HP_BETWEEN_45_AND_55_PCT:
 			if (GetHPRatio() > 45 && GetHPRatio() <= 55)
 				return true;
 			break;
-			
+
 		case IS_HP_BETWEEN_55_AND_65_PCT:
 			if (GetHPRatio() > 55 && GetHPRatio() <= 65)
 				return true;
 			break;
-			
+
 		case IS_HP_BETWEEN_65_AND_75_PCT:
 			if (GetHPRatio() > 65 && GetHPRatio() <= 75)
 				return true;
 			break;
-			
+
 		case IS_HP_BETWEEN_75_AND_85_PCT:
 			if (GetHPRatio() > 75 && GetHPRatio() <= 85)
 				return true;
@@ -7646,7 +7652,7 @@ bool Mob::PassCastRestriction(int value)
 			if (GetHPRatio() > 85 && GetHPRatio() <= 95)
 				return true;
 			break;
-			
+
 		case IS_HP_ABOVE_45_PCT:
 			if (GetHPRatio() > 45)
 				return true;
@@ -7686,7 +7692,7 @@ bool Mob::PassCastRestriction(int value)
 			if (GetBodyType() != BT_Plant)
 				return true;
 			break;
-			
+
 		case IS_NOT_CLIENT:
 			if (!IsClient())
 				return true;
@@ -7700,8 +7706,8 @@ bool Mob::PassCastRestriction(int value)
 		case IS_LEVEL_ABOVE_42_AND_IS_CLIENT:
 			if (IsClient() && GetLevel() > 42)
 				return true;
-			break;		
-			
+			break;
+
 		case IS_TREANT:
 			if (GetRace() == RT_TREANT || GetRace() == RT_TREANT_2 || GetRace() == RT_TREANT_3)
 				return true;
@@ -7889,7 +7895,7 @@ bool Mob::PassCastRestriction(int value)
 			}
 			break;
 		}
-			
+
 		case IS_CLIENT_AND_MALE_PLATE_USER:
 			if (IsClient() && GetGender() == MALE && IsPlateClass(GetClass()))
 				return true;
@@ -7901,7 +7907,7 @@ bool Mob::PassCastRestriction(int value)
 			break;
 
 		case IS_CLIENT_AND_MALE_BEASTLORD_BERSERKER_MONK_RANGER_OR_ROGUE:
-			if (IsClient() && GetGender() == MALE && 
+			if (IsClient() && GetGender() == MALE &&
 				(GetClass() == BEASTLORD || GetClass() == BERSERKER || GetClass() == MONK || GetClass() == RANGER || GetClass() == ROGUE))
 				return true;
 			break;
@@ -7978,7 +7984,7 @@ bool Mob::PassCastRestriction(int value)
 			}
 			break;
 		}
-			
+
 		case IS_NOT_CLASS_BARD:
 			if (GetClass() != BARD)
 				return true;
@@ -8023,7 +8029,7 @@ bool Mob::PassCastRestriction(int value)
 			if (FindBuff(SPELL_INCENDIARY_OOZE_BUFF))
 				return true;
 			break;
-				
+
 		//Not handled, just allow them to pass for now.
 		case UNKNOWN_3:
 		case HAS_CRYSTALLIZED_FLAME_BUFF:
