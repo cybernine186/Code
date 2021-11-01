@@ -4985,7 +4985,7 @@ int32 Bot::CalcBotAAFocus(focusType type, uint32 aa_ID, uint32 points, uint16 sp
 				}
 				break;
 			case SE_LimitInstant:
-				if(spell.buffduration)
+				if(spell.durationcap)
 					LimitFound = true;
 				break;
 			case SE_LimitMaxLevel:
@@ -5020,7 +5020,7 @@ int32 Bot::CalcBotAAFocus(focusType type, uint32 aa_ID, uint32 points, uint16 sp
 				}
 				break;
 			case SE_LimitMinDur:
-				if (base1 > CalcBuffDuration_formula(GetLevel(), spell.buffdurationformula, spell.buffduration))
+				if (base1 > CalcBuffDuration_formula(GetLevel(), spell.durationbase, spell.durationcap))
 					LimitFound = true;
 				break;
 			case SE_LimitEffect:
@@ -5443,7 +5443,7 @@ int32 Bot::CalcBotFocusEffect(focusType bottype, uint16 focus_id, uint16 spell_i
 				break;
 			}
 			case SE_LimitInstant: {
-				if(spell.buffduration)
+				if(spell.durationcap)
 					return 0;
 				break;
 			}
@@ -5484,7 +5484,7 @@ int32 Bot::CalcBotFocusEffect(focusType bottype, uint16 focus_id, uint16 spell_i
 				}
 				break;
 			case SE_LimitMinDur:
-				if (focus_spell.base[i] > CalcBuffDuration_formula(GetLevel(), spell.buffdurationformula, spell.buffduration))
+				if (focus_spell.base[i] > CalcBuffDuration_formula(GetLevel(), spell.durationbase, spell.durationcap))
 					return 0;
 				break;
 			case SE_LimitEffect:
@@ -6011,7 +6011,7 @@ void Bot::DoSpecialAttackDamage(Mob *who, EQ::skills::SkillType skill, int32 max
 	//	kb_chance += (kb_chance * (100 - aabonuses.SpecialAttackKBProc[0]) / 100);
 
 	//	if (zone->random.Int(0, 99) < kb_chance)
-	//		SpellFinished(904, who, 10, 0, -1, spells[904].ResistDiff);
+	//		SpellFinished(904, who, 10, 0, -1, spells[904].resist_mod);
 	//		//who->Stun(100); Kayen: This effect does not stun on live, it only moves the NPC.
 	//}
 
@@ -6757,7 +6757,7 @@ int32 Bot::GetActSpellHealing(uint16 spell_id, int32 value, Mob* target) {
 	value_BaseEffect = (value + (value*GetBotFocusEffect(focusFcBaseEffects, spell_id) / 100));
 	value = value_BaseEffect;
 	value += int(value_BaseEffect*GetBotFocusEffect(focusImprovedHeal, spell_id) / 100);
-	if(spells[spell_id].buffduration < 1) {
+	if(spells[spell_id].durationcap < 1) {
 		chance += (itembonuses.CriticalHealChance + spellbonuses.CriticalHealChance + aabonuses.CriticalHealChance);
 		chance += target->GetFocusIncoming(focusFcHealPctCritIncoming, SE_FcHealPctCritIncoming, this, spell_id);
 		if (spellbonuses.CriticalHealDecay)

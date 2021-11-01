@@ -764,7 +764,7 @@ void Client::InspectBuffs(Client* Inspector, int Rank)
 			continue;
 		ib->spell_id[packet_index] = buffs[i].spellid;
 		if (Rank > 1)
-			ib->tics_remaining[packet_index] = spells[buffs[i].spellid].buffdurationformula == DF_Permanent ? 0xFFFFFFFF : buffs[i].ticsremaining;
+			ib->tics_remaining[packet_index] = spells[buffs[i].spellid].durationbase == DF_Permanent ? 0xFFFFFFFF : buffs[i].ticsremaining;
 		packet_index++;
 	}
 
@@ -1256,7 +1256,7 @@ void Client::ActivateAlternateAdvancementAbility(int rank_id, int target_id) {
 	else {
 		// Bards can cast instant cast AAs while they are casting another song
 		if (spells[rank->spell].cast_time == 0 && GetClass() == BARD && IsBardSong(casting_spell_id)) {
-			if (!SpellFinished(rank->spell, entity_list.GetMob(target_id), EQ::spells::CastingSlot::AltAbility, spells[rank->spell].mana, -1, spells[rank->spell].ResistDiff, false)) {
+			if (!SpellFinished(rank->spell, entity_list.GetMob(target_id), EQ::spells::CastingSlot::AltAbility, spells[rank->spell].mana, -1, spells[rank->spell].resist_mod, false)) {
 				return;
 			}
 			ExpendAlternateAdvancementCharge(ability->id);

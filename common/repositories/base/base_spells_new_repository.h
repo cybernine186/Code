@@ -34,8 +34,8 @@ public:
 		int         cast_time;
 		int         recovery_time;
 		int         recast_time;
-		int         buffdurationformula;
-		int         buffduration;
+		int         durationbase;
+		int         durationcap;
 		int         AEDuration;
 		int         mana;
 		int         effect_base_value1;
@@ -165,7 +165,7 @@ public:
 		int         new_icon;
 		int         spellanim;
 		int         uninterruptable;
-		int         ResistDiff;
+		int         resist_mod;
 		int         dot_stacking_exempt;
 		int         deleteable;
 		int         RecourseLink;
@@ -181,8 +181,8 @@ public:
 		int         field160;
 		int         reflectable;
 		int         bonushate;
-		int         field163;
-		int         field164;
+		int         resist_per_level;
+		int         resist_cap;
 		int         ldon_trap;
 		int         EndurCost;
 		int         EndurTimerIndex;
@@ -195,9 +195,9 @@ public:
 		int         EndurUpkeep;
 		int         numhitstype;
 		int         numhits;
-		int         pvpresistbase;
-		int         pvpresistcalc;
-		int         pvpresistcap;
+		int         pvp_resist_mod;
+		int         pvp_resist_per_level;
+		int         pvp_resist_cap;
 		int         spell_category;
 		int         pvp_duration;
 		int         pvp_duration_cap;
@@ -281,8 +281,8 @@ public:
 			"cast_time",
 			"recovery_time",
 			"recast_time",
-			"buffdurationformula",
-			"buffduration",
+			"durationbase",
+			"durationcap",
 			"AEDuration",
 			"mana",
 			"effect_base_value1",
@@ -412,7 +412,7 @@ public:
 			"new_icon",
 			"spellanim",
 			"uninterruptable",
-			"ResistDiff",
+			"resist_mod",
 			"dot_stacking_exempt",
 			"deleteable",
 			"RecourseLink",
@@ -428,8 +428,8 @@ public:
 			"field160",
 			"reflectable",
 			"bonushate",
-			"field163",
-			"field164",
+			"resist_per_level",
+			"resist_cap",
 			"ldon_trap",
 			"EndurCost",
 			"EndurTimerIndex",
@@ -442,9 +442,9 @@ public:
 			"EndurUpkeep",
 			"numhitstype",
 			"numhits",
-			"pvpresistbase",
-			"pvpresistcalc",
-			"pvpresistcap",
+			"pvp_resist_mod",
+			"pvp_resist_per_level",
+			"pvp_resist_cap",
 			"spell_category",
 			"pvp_duration",
 			"pvp_duration_cap",
@@ -553,8 +553,8 @@ public:
 		entry.cast_time            = 0;
 		entry.recovery_time        = 0;
 		entry.recast_time          = 0;
-		entry.buffdurationformula  = 7;
-		entry.buffduration         = 65;
+		entry.durationbase         = 7;
+		entry.durationcap          = 65;
 		entry.AEDuration           = 0;
 		entry.mana                 = 0;
 		entry.effect_base_value1   = 100;
@@ -684,7 +684,7 @@ public:
 		entry.new_icon             = 161;
 		entry.spellanim            = 0;
 		entry.uninterruptable      = 0;
-		entry.ResistDiff           = -150;
+		entry.resist_mod           = -150;
 		entry.dot_stacking_exempt  = 0;
 		entry.deleteable           = 0;
 		entry.RecourseLink         = 0;
@@ -700,8 +700,8 @@ public:
 		entry.field160             = 0;
 		entry.reflectable          = 0;
 		entry.bonushate            = 0;
-		entry.field163             = 100;
-		entry.field164             = -150;
+		entry.resist_per_level     = 100;
+		entry.resist_cap           = -150;
 		entry.ldon_trap            = 0;
 		entry.EndurCost            = 0;
 		entry.EndurTimerIndex      = 0;
@@ -714,9 +714,9 @@ public:
 		entry.EndurUpkeep          = 0;
 		entry.numhitstype          = 0;
 		entry.numhits              = 0;
-		entry.pvpresistbase        = -150;
-		entry.pvpresistcalc        = 100;
-		entry.pvpresistcap         = -150;
+		entry.pvp_resist_mod       = -150;
+		entry.pvp_resist_per_level = 100;
+		entry.pvp_resist_cap       = -150;
 		entry.spell_category       = -99;
 		entry.pvp_duration         = 0;
 		entry.pvp_duration_cap     = 0;
@@ -825,8 +825,8 @@ public:
 			entry.cast_time            = atoi(row[13]);
 			entry.recovery_time        = atoi(row[14]);
 			entry.recast_time          = atoi(row[15]);
-			entry.buffdurationformula  = atoi(row[16]);
-			entry.buffduration         = atoi(row[17]);
+			entry.durationbase         = atoi(row[16]);
+			entry.durationcap          = atoi(row[17]);
 			entry.AEDuration           = atoi(row[18]);
 			entry.mana                 = atoi(row[19]);
 			entry.effect_base_value1   = atoi(row[20]);
@@ -956,7 +956,7 @@ public:
 			entry.new_icon             = atoi(row[144]);
 			entry.spellanim            = atoi(row[145]);
 			entry.uninterruptable      = atoi(row[146]);
-			entry.ResistDiff           = atoi(row[147]);
+			entry.resist_mod           = atoi(row[147]);
 			entry.dot_stacking_exempt  = atoi(row[148]);
 			entry.deleteable           = atoi(row[149]);
 			entry.RecourseLink         = atoi(row[150]);
@@ -972,8 +972,8 @@ public:
 			entry.field160             = atoi(row[160]);
 			entry.reflectable          = atoi(row[161]);
 			entry.bonushate            = atoi(row[162]);
-			entry.field163             = atoi(row[163]);
-			entry.field164             = atoi(row[164]);
+			entry.resist_per_level     = atoi(row[163]);
+			entry.resist_cap           = atoi(row[164]);
 			entry.ldon_trap            = atoi(row[165]);
 			entry.EndurCost            = atoi(row[166]);
 			entry.EndurTimerIndex      = atoi(row[167]);
@@ -986,9 +986,9 @@ public:
 			entry.EndurUpkeep          = atoi(row[174]);
 			entry.numhitstype          = atoi(row[175]);
 			entry.numhits              = atoi(row[176]);
-			entry.pvpresistbase        = atoi(row[177]);
-			entry.pvpresistcalc        = atoi(row[178]);
-			entry.pvpresistcap         = atoi(row[179]);
+			entry.pvp_resist_mod       = atoi(row[177]);
+			entry.pvp_resist_per_level = atoi(row[178]);
+			entry.pvp_resist_cap       = atoi(row[179]);
 			entry.spell_category       = atoi(row[180]);
 			entry.pvp_duration         = atoi(row[181]);
 			entry.pvp_duration_cap     = atoi(row[182]);
@@ -1095,8 +1095,8 @@ public:
 		update_values.push_back(columns[13] + " = " + std::to_string(spells_new_entry.cast_time));
 		update_values.push_back(columns[14] + " = " + std::to_string(spells_new_entry.recovery_time));
 		update_values.push_back(columns[15] + " = " + std::to_string(spells_new_entry.recast_time));
-		update_values.push_back(columns[16] + " = " + std::to_string(spells_new_entry.buffdurationformula));
-		update_values.push_back(columns[17] + " = " + std::to_string(spells_new_entry.buffduration));
+		update_values.push_back(columns[16] + " = " + std::to_string(spells_new_entry.durationbase));
+		update_values.push_back(columns[17] + " = " + std::to_string(spells_new_entry.durationcap));
 		update_values.push_back(columns[18] + " = " + std::to_string(spells_new_entry.AEDuration));
 		update_values.push_back(columns[19] + " = " + std::to_string(spells_new_entry.mana));
 		update_values.push_back(columns[20] + " = " + std::to_string(spells_new_entry.effect_base_value1));
@@ -1226,7 +1226,7 @@ public:
 		update_values.push_back(columns[144] + " = " + std::to_string(spells_new_entry.new_icon));
 		update_values.push_back(columns[145] + " = " + std::to_string(spells_new_entry.spellanim));
 		update_values.push_back(columns[146] + " = " + std::to_string(spells_new_entry.uninterruptable));
-		update_values.push_back(columns[147] + " = " + std::to_string(spells_new_entry.ResistDiff));
+		update_values.push_back(columns[147] + " = " + std::to_string(spells_new_entry.resist_mod));
 		update_values.push_back(columns[148] + " = " + std::to_string(spells_new_entry.dot_stacking_exempt));
 		update_values.push_back(columns[149] + " = " + std::to_string(spells_new_entry.deleteable));
 		update_values.push_back(columns[150] + " = " + std::to_string(spells_new_entry.RecourseLink));
@@ -1242,8 +1242,8 @@ public:
 		update_values.push_back(columns[160] + " = " + std::to_string(spells_new_entry.field160));
 		update_values.push_back(columns[161] + " = " + std::to_string(spells_new_entry.reflectable));
 		update_values.push_back(columns[162] + " = " + std::to_string(spells_new_entry.bonushate));
-		update_values.push_back(columns[163] + " = " + std::to_string(spells_new_entry.field163));
-		update_values.push_back(columns[164] + " = " + std::to_string(spells_new_entry.field164));
+		update_values.push_back(columns[163] + " = " + std::to_string(spells_new_entry.resist_per_level));
+		update_values.push_back(columns[164] + " = " + std::to_string(spells_new_entry.resist_cap));
 		update_values.push_back(columns[165] + " = " + std::to_string(spells_new_entry.ldon_trap));
 		update_values.push_back(columns[166] + " = " + std::to_string(spells_new_entry.EndurCost));
 		update_values.push_back(columns[167] + " = " + std::to_string(spells_new_entry.EndurTimerIndex));
@@ -1256,9 +1256,9 @@ public:
 		update_values.push_back(columns[174] + " = " + std::to_string(spells_new_entry.EndurUpkeep));
 		update_values.push_back(columns[175] + " = " + std::to_string(spells_new_entry.numhitstype));
 		update_values.push_back(columns[176] + " = " + std::to_string(spells_new_entry.numhits));
-		update_values.push_back(columns[177] + " = " + std::to_string(spells_new_entry.pvpresistbase));
-		update_values.push_back(columns[178] + " = " + std::to_string(spells_new_entry.pvpresistcalc));
-		update_values.push_back(columns[179] + " = " + std::to_string(spells_new_entry.pvpresistcap));
+		update_values.push_back(columns[177] + " = " + std::to_string(spells_new_entry.pvp_resist_mod));
+		update_values.push_back(columns[178] + " = " + std::to_string(spells_new_entry.pvp_resist_per_level));
+		update_values.push_back(columns[179] + " = " + std::to_string(spells_new_entry.pvp_resist_cap));
 		update_values.push_back(columns[180] + " = " + std::to_string(spells_new_entry.spell_category));
 		update_values.push_back(columns[181] + " = " + std::to_string(spells_new_entry.pvp_duration));
 		update_values.push_back(columns[182] + " = " + std::to_string(spells_new_entry.pvp_duration_cap));
@@ -1353,8 +1353,8 @@ public:
 		insert_values.push_back(std::to_string(spells_new_entry.cast_time));
 		insert_values.push_back(std::to_string(spells_new_entry.recovery_time));
 		insert_values.push_back(std::to_string(spells_new_entry.recast_time));
-		insert_values.push_back(std::to_string(spells_new_entry.buffdurationformula));
-		insert_values.push_back(std::to_string(spells_new_entry.buffduration));
+		insert_values.push_back(std::to_string(spells_new_entry.durationbase));
+		insert_values.push_back(std::to_string(spells_new_entry.durationcap));
 		insert_values.push_back(std::to_string(spells_new_entry.AEDuration));
 		insert_values.push_back(std::to_string(spells_new_entry.mana));
 		insert_values.push_back(std::to_string(spells_new_entry.effect_base_value1));
@@ -1484,7 +1484,7 @@ public:
 		insert_values.push_back(std::to_string(spells_new_entry.new_icon));
 		insert_values.push_back(std::to_string(spells_new_entry.spellanim));
 		insert_values.push_back(std::to_string(spells_new_entry.uninterruptable));
-		insert_values.push_back(std::to_string(spells_new_entry.ResistDiff));
+		insert_values.push_back(std::to_string(spells_new_entry.resist_mod));
 		insert_values.push_back(std::to_string(spells_new_entry.dot_stacking_exempt));
 		insert_values.push_back(std::to_string(spells_new_entry.deleteable));
 		insert_values.push_back(std::to_string(spells_new_entry.RecourseLink));
@@ -1500,8 +1500,8 @@ public:
 		insert_values.push_back(std::to_string(spells_new_entry.field160));
 		insert_values.push_back(std::to_string(spells_new_entry.reflectable));
 		insert_values.push_back(std::to_string(spells_new_entry.bonushate));
-		insert_values.push_back(std::to_string(spells_new_entry.field163));
-		insert_values.push_back(std::to_string(spells_new_entry.field164));
+		insert_values.push_back(std::to_string(spells_new_entry.resist_per_level));
+		insert_values.push_back(std::to_string(spells_new_entry.resist_cap));
 		insert_values.push_back(std::to_string(spells_new_entry.ldon_trap));
 		insert_values.push_back(std::to_string(spells_new_entry.EndurCost));
 		insert_values.push_back(std::to_string(spells_new_entry.EndurTimerIndex));
@@ -1514,9 +1514,9 @@ public:
 		insert_values.push_back(std::to_string(spells_new_entry.EndurUpkeep));
 		insert_values.push_back(std::to_string(spells_new_entry.numhitstype));
 		insert_values.push_back(std::to_string(spells_new_entry.numhits));
-		insert_values.push_back(std::to_string(spells_new_entry.pvpresistbase));
-		insert_values.push_back(std::to_string(spells_new_entry.pvpresistcalc));
-		insert_values.push_back(std::to_string(spells_new_entry.pvpresistcap));
+		insert_values.push_back(std::to_string(spells_new_entry.pvp_resist_mod));
+		insert_values.push_back(std::to_string(spells_new_entry.pvp_resist_per_level));
+		insert_values.push_back(std::to_string(spells_new_entry.pvp_resist_cap));
 		insert_values.push_back(std::to_string(spells_new_entry.spell_category));
 		insert_values.push_back(std::to_string(spells_new_entry.pvp_duration));
 		insert_values.push_back(std::to_string(spells_new_entry.pvp_duration_cap));
@@ -1619,8 +1619,8 @@ public:
 			insert_values.push_back(std::to_string(spells_new_entry.cast_time));
 			insert_values.push_back(std::to_string(spells_new_entry.recovery_time));
 			insert_values.push_back(std::to_string(spells_new_entry.recast_time));
-			insert_values.push_back(std::to_string(spells_new_entry.buffdurationformula));
-			insert_values.push_back(std::to_string(spells_new_entry.buffduration));
+			insert_values.push_back(std::to_string(spells_new_entry.durationbase));
+			insert_values.push_back(std::to_string(spells_new_entry.durationcap));
 			insert_values.push_back(std::to_string(spells_new_entry.AEDuration));
 			insert_values.push_back(std::to_string(spells_new_entry.mana));
 			insert_values.push_back(std::to_string(spells_new_entry.effect_base_value1));
@@ -1750,7 +1750,7 @@ public:
 			insert_values.push_back(std::to_string(spells_new_entry.new_icon));
 			insert_values.push_back(std::to_string(spells_new_entry.spellanim));
 			insert_values.push_back(std::to_string(spells_new_entry.uninterruptable));
-			insert_values.push_back(std::to_string(spells_new_entry.ResistDiff));
+			insert_values.push_back(std::to_string(spells_new_entry.resist_mod));
 			insert_values.push_back(std::to_string(spells_new_entry.dot_stacking_exempt));
 			insert_values.push_back(std::to_string(spells_new_entry.deleteable));
 			insert_values.push_back(std::to_string(spells_new_entry.RecourseLink));
@@ -1766,8 +1766,8 @@ public:
 			insert_values.push_back(std::to_string(spells_new_entry.field160));
 			insert_values.push_back(std::to_string(spells_new_entry.reflectable));
 			insert_values.push_back(std::to_string(spells_new_entry.bonushate));
-			insert_values.push_back(std::to_string(spells_new_entry.field163));
-			insert_values.push_back(std::to_string(spells_new_entry.field164));
+			insert_values.push_back(std::to_string(spells_new_entry.resist_per_level));
+			insert_values.push_back(std::to_string(spells_new_entry.resist_cap));
 			insert_values.push_back(std::to_string(spells_new_entry.ldon_trap));
 			insert_values.push_back(std::to_string(spells_new_entry.EndurCost));
 			insert_values.push_back(std::to_string(spells_new_entry.EndurTimerIndex));
@@ -1780,9 +1780,9 @@ public:
 			insert_values.push_back(std::to_string(spells_new_entry.EndurUpkeep));
 			insert_values.push_back(std::to_string(spells_new_entry.numhitstype));
 			insert_values.push_back(std::to_string(spells_new_entry.numhits));
-			insert_values.push_back(std::to_string(spells_new_entry.pvpresistbase));
-			insert_values.push_back(std::to_string(spells_new_entry.pvpresistcalc));
-			insert_values.push_back(std::to_string(spells_new_entry.pvpresistcap));
+			insert_values.push_back(std::to_string(spells_new_entry.pvp_resist_mod));
+			insert_values.push_back(std::to_string(spells_new_entry.pvp_resist_per_level));
+			insert_values.push_back(std::to_string(spells_new_entry.pvp_resist_cap));
 			insert_values.push_back(std::to_string(spells_new_entry.spell_category));
 			insert_values.push_back(std::to_string(spells_new_entry.pvp_duration));
 			insert_values.push_back(std::to_string(spells_new_entry.pvp_duration_cap));
@@ -1889,8 +1889,8 @@ public:
 			entry.cast_time            = atoi(row[13]);
 			entry.recovery_time        = atoi(row[14]);
 			entry.recast_time          = atoi(row[15]);
-			entry.buffdurationformula  = atoi(row[16]);
-			entry.buffduration         = atoi(row[17]);
+			entry.durationbase         = atoi(row[16]);
+			entry.durationcap          = atoi(row[17]);
 			entry.AEDuration           = atoi(row[18]);
 			entry.mana                 = atoi(row[19]);
 			entry.effect_base_value1   = atoi(row[20]);
@@ -2020,7 +2020,7 @@ public:
 			entry.new_icon             = atoi(row[144]);
 			entry.spellanim            = atoi(row[145]);
 			entry.uninterruptable      = atoi(row[146]);
-			entry.ResistDiff           = atoi(row[147]);
+			entry.resist_mod           = atoi(row[147]);
 			entry.dot_stacking_exempt  = atoi(row[148]);
 			entry.deleteable           = atoi(row[149]);
 			entry.RecourseLink         = atoi(row[150]);
@@ -2036,8 +2036,8 @@ public:
 			entry.field160             = atoi(row[160]);
 			entry.reflectable          = atoi(row[161]);
 			entry.bonushate            = atoi(row[162]);
-			entry.field163             = atoi(row[163]);
-			entry.field164             = atoi(row[164]);
+			entry.resist_per_level     = atoi(row[163]);
+			entry.resist_cap           = atoi(row[164]);
 			entry.ldon_trap            = atoi(row[165]);
 			entry.EndurCost            = atoi(row[166]);
 			entry.EndurTimerIndex      = atoi(row[167]);
@@ -2050,9 +2050,9 @@ public:
 			entry.EndurUpkeep          = atoi(row[174]);
 			entry.numhitstype          = atoi(row[175]);
 			entry.numhits              = atoi(row[176]);
-			entry.pvpresistbase        = atoi(row[177]);
-			entry.pvpresistcalc        = atoi(row[178]);
-			entry.pvpresistcap         = atoi(row[179]);
+			entry.pvp_resist_mod       = atoi(row[177]);
+			entry.pvp_resist_per_level = atoi(row[178]);
+			entry.pvp_resist_cap       = atoi(row[179]);
 			entry.spell_category       = atoi(row[180]);
 			entry.pvp_duration         = atoi(row[181]);
 			entry.pvp_duration_cap     = atoi(row[182]);
@@ -2150,8 +2150,8 @@ public:
 			entry.cast_time            = atoi(row[13]);
 			entry.recovery_time        = atoi(row[14]);
 			entry.recast_time          = atoi(row[15]);
-			entry.buffdurationformula  = atoi(row[16]);
-			entry.buffduration         = atoi(row[17]);
+			entry.durationbase         = atoi(row[16]);
+			entry.durationcap          = atoi(row[17]);
 			entry.AEDuration           = atoi(row[18]);
 			entry.mana                 = atoi(row[19]);
 			entry.effect_base_value1   = atoi(row[20]);
@@ -2281,7 +2281,7 @@ public:
 			entry.new_icon             = atoi(row[144]);
 			entry.spellanim            = atoi(row[145]);
 			entry.uninterruptable      = atoi(row[146]);
-			entry.ResistDiff           = atoi(row[147]);
+			entry.resist_mod           = atoi(row[147]);
 			entry.dot_stacking_exempt  = atoi(row[148]);
 			entry.deleteable           = atoi(row[149]);
 			entry.RecourseLink         = atoi(row[150]);
@@ -2297,8 +2297,8 @@ public:
 			entry.field160             = atoi(row[160]);
 			entry.reflectable          = atoi(row[161]);
 			entry.bonushate            = atoi(row[162]);
-			entry.field163             = atoi(row[163]);
-			entry.field164             = atoi(row[164]);
+			entry.resist_per_level     = atoi(row[163]);
+			entry.resist_cap           = atoi(row[164]);
 			entry.ldon_trap            = atoi(row[165]);
 			entry.EndurCost            = atoi(row[166]);
 			entry.EndurTimerIndex      = atoi(row[167]);
@@ -2311,9 +2311,9 @@ public:
 			entry.EndurUpkeep          = atoi(row[174]);
 			entry.numhitstype          = atoi(row[175]);
 			entry.numhits              = atoi(row[176]);
-			entry.pvpresistbase        = atoi(row[177]);
-			entry.pvpresistcalc        = atoi(row[178]);
-			entry.pvpresistcap         = atoi(row[179]);
+			entry.pvp_resist_mod       = atoi(row[177]);
+			entry.pvp_resist_per_level = atoi(row[178]);
+			entry.pvp_resist_cap       = atoi(row[179]);
 			entry.spell_category       = atoi(row[180]);
 			entry.pvp_duration         = atoi(row[181]);
 			entry.pvp_duration_cap     = atoi(row[182]);

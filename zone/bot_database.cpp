@@ -843,7 +843,7 @@ bool BotDatabase::SaveBuffs(Bot* bot_inst)
 			bot_inst->GetBotID(),
 			bot_buffs[buff_index].spellid,
 			bot_buffs[buff_index].casterlevel,
-			spells[bot_buffs[buff_index].spellid].buffdurationformula,
+			spells[bot_buffs[buff_index].spellid].durationbase,
 			bot_buffs[buff_index].ticsremaining,
 			((CalculatePoisonCounters(bot_buffs[buff_index].spellid) > 0) ? (bot_buffs[buff_index].counters) : (0)),
 			((CalculateDiseaseCounters(bot_buffs[buff_index].spellid) > 0) ? (bot_buffs[buff_index].counters) : (0)),

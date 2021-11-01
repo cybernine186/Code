@@ -606,7 +606,7 @@ bool Bot::AICastSpell(Mob* tar, uint8 iChance, uint32 iSpellTypes) {
 
 					if(CheckSpellRecastTimers(this, itr->SpellIndex))
 					{
-						if(!(!tar->IsImmuneToSpell(selectedBotSpell.SpellId, this) && (spells[selectedBotSpell.SpellId].buffduration < 1 || tar->CanBuffStack(selectedBotSpell.SpellId, botLevel, true) >= 0)))
+						if(!(!tar->IsImmuneToSpell(selectedBotSpell.SpellId, this) && (spells[selectedBotSpell.SpellId].durationcap < 1 || tar->CanBuffStack(selectedBotSpell.SpellId, botLevel, true) >= 0)))
 							continue;
 
 						//short duration buffs or other buffs only to be cast during combat.
@@ -868,7 +868,7 @@ bool Bot::AICastSpell(Mob* tar, uint8 iChance, uint32 iSpellTypes) {
 					case BEASTLORD: {
 						botSpell = GetBestBotSpellForDiseaseBasedSlow(this);
 
-						if(botSpell.SpellId == 0 || ((tar->GetMR() - 50) < (tar->GetDR() + spells[botSpell.SpellId].ResistDiff)))
+						if(botSpell.SpellId == 0 || ((tar->GetMR() - 50) < (tar->GetDR() + spells[botSpell.SpellId].resist_mod)))
 							botSpell = GetBestBotSpellForMagicBasedSlow(this);
 						break;
 					}
@@ -1111,7 +1111,7 @@ bool Bot::AIDoSpellCast(uint8 i, Mob* tar, int32 mana_cost, uint32* oDontDoAgain
 		//	// Bard buff songs have been moved to their own npc spell type..
 		//	// Buff stacking is now checked as opposed to manipulating the timer to avoid rapid casting
 
-		//	//AIspells[i].time_cancast = (spells[AIspells[i].spellid].recast_time > (spells[AIspells[i].spellid].buffduration * 6000)) ? Timer::GetCurrentTime() + spells[AIspells[i].spellid].recast_time : Timer::GetCurrentTime() + spells[AIspells[i].spellid].buffduration * 6000;
+		//	//AIspells[i].time_cancast = (spells[AIspells[i].spellid].recast_time > (spells[AIspells[i].spellid].durationcap * 6000)) ? Timer::GetCurrentTime() + spells[AIspells[i].spellid].recast_time : Timer::GetCurrentTime() + spells[AIspells[i].spellid].durationcap * 6000;
 		//	//spellend_timer.Start(spells[AIspells[i].spellid].cast_time);
 		//}
 		//else
@@ -2265,26 +2265,26 @@ BotSpell Bot::GetBestBotWizardNukeSpellByTargetResists(Bot* botCaster, Mob* targ
 			bool spellSelected = false;
 
 			if(CheckSpellRecastTimers(botCaster, botSpellListItr->SpellIndex)) {
-				if(selectLureNuke && (spells[botSpellListItr->SpellId].ResistDiff < lureResisValue)) {
+				if(selectLureNuke && (spells[botSpellListItr->SpellId].resist_mod < lureResisValue)) {
 					spellSelected = true;
 				}
 				else if(IsPureNukeSpell(botSpellListItr->SpellId)) {
 					if(((target->GetMR() < target->GetCR()) || (target->GetMR() < target->GetFR())) && (GetSpellResistType(botSpellListItr->SpellId) == RESIST_MAGIC)
-						&& (spells[botSpellListItr->SpellId].ResistDiff > lureResisValue))
+						&& (spells[botSpellListItr->SpellId].resist_mod > lureResisValue))
 					{
 						spellSelected = true;
 					}
 					else if(((target->GetCR() < target->GetMR()) || (target->GetCR() < target->GetFR())) && (GetSpellResistType(botSpellListItr->SpellId) == RESIST_COLD)
-						&& (spells[botSpellListItr->SpellId].ResistDiff > lureResisValue))
+						&& (spells[botSpellListItr->SpellId].resist_mod > lureResisValue))
 					{
 						spellSelected = true;
 					}
 					else if(((target->GetFR() < target->GetCR()) || (target->GetFR() < target->GetMR())) && (GetSpellResistType(botSpellListItr->SpellId) == RESIST_FIRE)
-						&& (spells[botSpellListItr->SpellId].ResistDiff > lureResisValue))
+						&& (spells[botSpellListItr->SpellId].resist_mod > lureResisValue))
 					{
 						spellSelected = true;
 					}
-					else if((GetSpellResistType(botSpellListItr->SpellId) == RESIST_MAGIC) && (spells[botSpellListItr->SpellId].ResistDiff > lureResisValue) && !IsStunSpell(botSpellListItr->SpellId)) {
+					else if((GetSpellResistType(botSpellListItr->SpellId) == RESIST_MAGIC) && (spells[botSpellListItr->SpellId].resist_mod > lureResisValue) && !IsStunSpell(botSpellListItr->SpellId)) {
 						firstWizardMagicNukeSpellFound.SpellId = botSpellListItr->SpellId;
 						firstWizardMagicNukeSpellFound.SpellIndex = botSpellListItr->SpellIndex;
 						firstWizardMagicNukeSpellFound.ManaCost = botSpellListItr->ManaCost;

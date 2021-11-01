@@ -58,8 +58,8 @@ int main(int argc, char** argv) {
 		sp.cast_time=atoi(sep.arg[13]);
 		sp.recovery_time=atoi(sep.arg[14]);
 		sp.recast_time=atoi(sep.arg[15]);
-		sp.buffdurationformula=atoi(sep.arg[16]);
-		sp.buffduration=atoi(sep.arg[17]);
+		sp.durationbase=atoi(sep.arg[16]);
+		sp.durationcap=atoi(sep.arg[17]);
 		sp.AEDuration=atoi(sep.arg[18]);
 		sp.mana=atoi(sep.arg[19]);
 		
@@ -113,7 +113,7 @@ int main(int argc, char** argv) {
 			sp.spacing124[y]=atoi(sep.arg[124+y]);
 		}
 		
-		sp.ResistDiff=atoi(sep.arg[147]);
+		sp.resist_mod=atoi(sep.arg[147]);
 		sp.dot_stacking_exempt=atoi(sep.arg[148]);
 		sp.deletable=atoi(sep.arg[149]);
 		
@@ -147,8 +147,8 @@ int main(int argc, char** argv) {
 	printf("  cast_time: %d\n", s->cast_time);
 	printf("  recovery_time: %d\n", s->recovery_time);
 	printf("  recast_time: %d\n", s->recast_time);
-	printf("  buffdurationformula: %d\n", s->buffdurationformula);
-	printf("  buffduration: %d\n", s->buffduration);
+	printf("  durationbase: %d\n", s->durationbase);
+	printf("  durationcap: %d\n", s->durationcap);
 	printf("  AEDuration: %d\n", s->AEDuration);
 	printf("  mana: %d\n", s->mana);
 	printf("  base[12]: %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d\n", s->base[0], s->base[1], s->base[2], s->base[3], s->base[4], s->base[5], s->base[6], s->base[7], s->base[8], s->base[9], s->base[10], s->base[11]);
