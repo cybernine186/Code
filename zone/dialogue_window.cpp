@@ -4,11 +4,12 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 {
 	std::string output = markdown;
 
-	// this is the NPC that the client is interacting with if there is dialogue going on
-	Mob *target;
-	if (c->GetTarget()) {
-		target = c->GetTarget();
+	if (!c->ClientDataLoaded()) {
+		return;
 	}
+
+	// this is the NPC that the client is interacting with if there is dialogue going on
+	Mob *target = c->GetTarget() ? c->GetTarget() : c;
 
 	// zero this out
 	c->SetEntityVariable(DIAWIND_RESPONSE_ONE_KEY.c_str(), "");
@@ -25,7 +26,7 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 	find_replace(output, "{gray}", "<c \"#808080\">");
 	find_replace(output, "{tan}", "<c \"#daa520\">");
 	find_replace(output, "{bullet}", "•");
-	find_replace(output, "{name}", "$name");
+	find_replace(output, "{name}", fmt::format("{}", c->GetCleanName()));
 	find_replace(output, "{linebreak}", "--------------------------------------------------------------------");
 	find_replace(output, "{rowpad}", R"(<tr><td>{tdpad}<"td><td>{tdpad}<"td><"tr>)");
 	find_replace(output, "{tdpad}", "----------------------");
@@ -55,6 +56,13 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 		find_replace(output, "nobracket", "");
 	}
 
+	bool render_hiddenresponse = false;
+	if (markdown.find("hiddenresponse") != std::string::npos) {
+		render_hiddenresponse = true;
+		LogDiaWind("Client [{}] Rendering hiddenresponse", c->GetCleanName());
+		find_replace(output, "hiddenresponse", "");
+	}
+
 	// animations
 	std::string animation = get_between(output, "+", "+");
 	if (!animation.empty()) {
@@ -81,6 +89,21 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 		}
 	}
 
+	if (animation.empty() && RuleB(Chat, DialogueWindowAnimatesNPCsIfNoneSet)) {
+		std::vector<int> greet_animations = {
+			29, // wave
+			48, // nodyes
+			64, // point
+			67, // salute
+			69, // tapfoot
+			70, // bowto
+		};
+
+		int random_animation = rand() % (greet_animations.size() - 1) + 0;
+
+		target->DoAnim(greet_animations[random_animation]);
+	}
+
 	// window expire time
 	std::string expire_time           = get_between(output, "=", "=");
 	uint32      window_expire_seconds = 0;
@@ -99,15 +122,15 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 		}
 	}
 
-	uint32 popup_id = POPUPID_DIAWIND_ONE;
-	uint32 negative_id = POPUPID_DIAWIND_TWO;
+	uint32      popup_id       = POPUPID_DIAWIND_ONE;
+	uint32      negative_id    = POPUPID_DIAWIND_TWO;
 	std::string button_one_name;
 	std::string button_two_name;
-	uint32 sound_controls = 0;
+	uint32      sound_controls = 0;
 
 	// window type
 	std::string wintype;
-	if (markdown.find("wintype") != std::string::npos) {
+	if (markdown.find("wintype:") != std::string::npos) {
 		LogDiaWind("Client [{}] Rendering wintype option", c->GetCleanName());
 
 		auto first_split = split_string(output, "wintype:");
@@ -138,7 +161,7 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 
 	// popupid
 	std::string popupid;
-	if (markdown.find("popupid") != std::string::npos) {
+	if (markdown.find("popupid:") != std::string::npos) {
 		LogDiaWind("Client [{}] Rendering popupid option", c->GetCleanName());
 
 		auto first_split = split_string(output, "popupid:");
@@ -174,7 +197,7 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 
 	// secondresponseid
 	std::string secondresponseid;
-	if (markdown.find("secondresponseid") != std::string::npos) {
+	if (markdown.find("secondresponseid:") != std::string::npos) {
 		LogDiaWind("Client [{}] Rendering secondresponseid option", c->GetCleanName());
 
 		auto first_split = split_string(output, "secondresponseid:");
@@ -182,7 +205,9 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 			auto second_split = split_string(first_split[1], " ");
 			if (!second_split.empty()) {
 				secondresponseid = second_split[0];
-				LogDiaWindDetail("Client [{}] Rendering secondresponseid option secondresponseid [{}]", c->GetCleanName(), secondresponseid);
+				LogDiaWindDetail("Client [{}] Rendering secondresponseid option secondresponseid [{}]",
+								 c->GetCleanName(),
+								 secondresponseid);
 			}
 
 			if (first_split[1].length() == 1) {
@@ -206,66 +231,67 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 	std::string button_one;
 	std::string button_two;
 	if (
-		markdown.find("button_one") != std::string::npos &&
-		markdown.find("button_two") != std::string::npos
-	) {
+		markdown.find("{button_one:") != std::string::npos &&
+		markdown.find("{button_two:") != std::string::npos
+		) {
+
 		LogDiaWind("Client [{}] Rendering button_one option.", c->GetCleanName());
 
-		auto one_first_split = split_string(output, "button_one:");
-		if (!one_first_split.empty()) {
-			auto one_second_split = split_string(one_first_split[1], " ");
-			if (!one_second_split.empty()) {
-				button_one = one_second_split[0];
-				LogDiaWindDetail("Client [{}] Rendering button_one option button_one [{}]", c->GetCleanName(), button_one);
-			}
+		button_one = get_between(output, "{button_one:", "}");
+		LogDiaWind("Client [{}] button_one [{}]", c->GetCleanName(), button_one);
 
-			if (one_first_split[1].length() == 1) {
-				button_one = one_first_split[1];
-				LogDiaWindDetail(
-					"Client [{}] Rendering button_one (end) option button_one [{}]",
-					c->GetCleanName(),
-					button_one
-				);
-			}
-
-			find_replace(output, fmt::format("button_one:{}", button_one), "");
-
-			if (!button_one.empty()) {
-				button_one_name = button_one.c_str();
-			}
+		if (!button_one.empty()) {
+			find_replace(output, fmt::format("{{button_one:{}}}", button_one), "");
+			button_one_name = trim(button_one);
 		}
-		
-		LogDiaWind("Client [{}] Rendering button_two option.", c->GetCleanName());
 
-		auto two_first_split = split_string(output, "button_two:");
-		if (!two_first_split.empty()) {
-			auto two_second_split = split_string(two_first_split[1], " ");
-			if (!two_second_split.empty()) {
-				button_two = two_second_split[0];
-				LogDiaWindDetail("Client [{}] Rendering button_two option button_two [{}]", c->GetCleanName(), button_two);
-			}
+		button_two = get_between(output, "{button_two:", "}");
+		LogDiaWind("Client [{}] button_two [{}]", c->GetCleanName(), button_two);
 
-			if (two_first_split[1].length() == 1) {
-				button_two = two_first_split[1];
-				LogDiaWindDetail(
-					"Client [{}] Rendering button_two (end) option button_two [{}]",
-					c->GetCleanName(),
-					button_two
-				);
-			}
-
-			find_replace(output, fmt::format("button_two:{}", button_two), "");
-
-			if (!button_two.empty()) {
-				button_two_name = button_two.c_str();
-			}
+		if (!button_two.empty()) {
+			find_replace(output, fmt::format("{{button_two:{}}}", button_two), "");
+			button_two_name = trim(button_two);
 		}
+
+		LogDiaWind(
+			"Client [{}] Rendering buttons button_one [{}] button_two [{}]",
+			c->GetCleanName(),
+			button_one,
+			button_two
+		);
 	}
 
 	// bracket responses
 	std::vector<std::string> responses;
 	std::vector<std::string> bracket_responses;
 	if (markdown.find('[') != std::string::npos && markdown.find(']') != std::string::npos) {
+
+		// record any saylinks that may be in saylink form
+		std::string                        strip_saylinks = output;
+		std::map<std::string, std::string> replacements   = {};
+		while (strip_saylinks.find('[') != std::string::npos && strip_saylinks.find(']') != std::string::npos) {
+			std::string bracket_message = get_between(strip_saylinks, "[", "]");
+
+			// strip saylinks and normalize to [regular message]
+			size_t link_open  = bracket_message.find('\x12');
+			size_t link_close = bracket_message.find_last_of('\x12');
+			if (link_open != link_close && (bracket_message.length() - link_open) > EQ::constants::SAY_LINK_BODY_SIZE) {
+				replacements.insert(
+					std::pair<std::string, std::string>(
+						bracket_message,
+						bracket_message.substr(EQ::constants::SAY_LINK_BODY_SIZE + 1)
+					)
+				);
+			}
+
+			find_replace(strip_saylinks, fmt::format("[{}]", bracket_message), "");
+		}
+
+		// write replacement strips
+		for (auto &replacement: replacements) {
+			find_replace(output, replacement.first, replacement.second.substr(0, replacement.second.size() - 1));
+		}
+
 		// copy
 		std::string content = output;
 
@@ -286,6 +312,11 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 
 			// pop the response off of the message
 			find_replace(content, fmt::format("[{}]", bracket_message), "");
+
+			// too many iterations / safety net
+			if (response_index > 100) {
+				break;
+			}
 
 			response_index++;
 		}
@@ -351,7 +382,22 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 		speaking = "A Mysterious Voice says";
 	}
 
-	title = fmt::format("Dialogue [{}]", speaking);
+	// title
+	std::string popup_title;
+	if (markdown.find("{title:") != std::string::npos) {
+		popup_title = get_between(output, "{title:", "}");
+
+		LogDiaWind("Client [{}] Rendering title option title [{}]", c->GetCleanName(), popup_title);
+
+		if (!popup_title.empty()) {
+			find_replace(output, fmt::format("{{title:{}}}", popup_title), "");
+			title = trim(popup_title);
+		}
+	}
+
+	if (title.empty()) {
+		title = fmt::format("Dialogue [{}]", speaking);
+	}
 
 	// render quotes
 	std::string quote_string = "'";
@@ -412,8 +458,8 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 				color_tag
 			);
 
-			std::string html_tag;
-			for (const auto& color : html_colors) {
+			std::string     html_tag;
+			for (const auto &color : html_colors) {
 				if (color_tag.find(color.first) != std::string::npos) {
 					// build html tag
 					html_tag = fmt::format("<c \"{}\">", color.second);
@@ -422,14 +468,21 @@ void DialogueWindow::Render(Client *c, std::string markdown)
 				}
 			}
 
+			// too many iterations / safety net
+			if (tag_index > 100) {
+				break;
+			}
+
 			tag_index++;
 		}
 	}
 
-
 	// build the final output string
 	std::string final_output;
-	final_output = fmt::format("{}{}{} <br><br> {}", quote_string, output, quote_string, click_response);
+	final_output = fmt::format("{}{}{} <br><br> {}", quote_string, trim(output), quote_string, click_response);
+	if (render_hiddenresponse) {
+		final_output = fmt::format("{}{}{}", quote_string, trim(output), quote_string);
+	}
 
 	// send popup
 	c->SendFullPopup(

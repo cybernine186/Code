@@ -41,6 +41,7 @@ typedef const char Const_char;
 #include "mob.h"
 #include "client.h"
 #include "../common/spdat.h"
+#include "dialogue_window.h"
 
 #ifdef BOTS
 #include "bot.h"
@@ -2621,8 +2622,11 @@ XS(XS_Mob_Message) {
 		char *message = (char *) SvPV_nolen(ST(2));
 		VALIDATE_THIS_IS_MOB;
 
-		// auto inject saylinks
-		if (RuleB(Chat, AutoInjectSaylinksToClientMessage)) {
+		if (RuleB(Chat, QuestDialogueUsesDialogueWindow) && THIS->IsClient()) {
+			std::string window_markdown = message;
+			DialogueWindow::Render(THIS->CastToClient(), window_markdown);
+		}
+		else if (RuleB(Chat, AutoInjectSaylinksToClientMessage)) {
 			std::string new_message = EQ::SayLinkEngine::InjectSaylinksIfNotExist(message);
 			THIS->Message(type, new_message.c_str());
 		}
@@ -5941,6 +5945,43 @@ XS(XS_Mob_HasPet) {
 	XSRETURN(1);
 }
 
+XS(XS_Mob_RemovePet);
+XS(XS_Mob_RemovePet) {
+	dXSARGS;
+	if (items != 1) {
+		Perl_croak(aTHX_ "Usage: Mob::RemovePet(THIS)"); // @categories Pet
+	}
+
+	Mob* THIS;
+	VALIDATE_THIS_IS_MOB;
+
+	THIS->SetPet(nullptr);
+
+	XSRETURN_EMPTY;
+}
+
+XS(XS_Mob_SetPet);
+XS(XS_Mob_SetPet) {
+	dXSARGS;
+	if (items != 2) {
+		Perl_croak(aTHX_ "Usage: Mob::SetPet(THIS, Mob* new_pet)"); // @categories Pet
+	}
+
+	Mob* THIS;
+	VALIDATE_THIS_IS_MOB;
+
+	Mob* new_pet = nullptr; // passing null or invalid new_pet removes pet
+	if (sv_derived_from(ST(1), "Mob"))
+	{
+		IV tmp = SvIV((SV*)SvRV(ST(1)));
+		new_pet = INT2PTR(Mob*, tmp);
+	}
+
+	THIS->SetPet(new_pet);
+
+	XSRETURN_EMPTY;
+}
+
 XS(XS_Mob_IsSilenced);
 XS(XS_Mob_IsSilenced) {
 	dXSARGS;
@@ -6316,6 +6357,38 @@ XS(XS_Mob_ShieldAbility) {
 	XSRETURN_EMPTY;
 }
 
+XS(XS_Mob_GetHateRandomClient); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Mob_GetHateRandomClient) {
+	dXSARGS;
+	if (items != 1)
+		Perl_croak(aTHX_ "Usage: Mob::GetHateRandomClient(THIS)"); // @categories Hate and Aggro
+	{
+		Mob* THIS;
+		Client* RETVAL;
+		VALIDATE_THIS_IS_MOB;
+		RETVAL = THIS->GetHateRandomClient();
+		ST(0) = sv_newmortal();
+		sv_setref_pv(ST(0), "Client", (void *) RETVAL);
+	}
+	XSRETURN(1);
+}
+
+XS(XS_Mob_GetHateRandomNPC); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Mob_GetHateRandomNPC) {
+	dXSARGS;
+	if (items != 1)
+		Perl_croak(aTHX_ "Usage: Mob::GetHateRandomNPC(THIS)"); // @categories Hate and Aggro
+	{
+		Mob* THIS;
+		NPC* RETVAL;
+		VALIDATE_THIS_IS_MOB;
+		RETVAL = THIS->GetHateRandomNPC();
+		ST(0) = sv_newmortal();
+		sv_setref_pv(ST(0), "NPC", (void *) RETVAL);
+	}
+	XSRETURN(1);
+}
+
 #ifdef BOTS
 XS(XS_Mob_CastToBot); /* prototype to pass -Wmissing-prototypes */
 XS(XS_Mob_CastToBot)
@@ -6330,6 +6403,22 @@ XS(XS_Mob_CastToBot)
 		RETVAL = THIS->CastToBot();
 		ST(0) = sv_newmortal();
 		sv_setref_pv(ST(0), "Bot", (void*)RETVAL);
+	}
+	XSRETURN(1);
+}
+
+XS(XS_Mob_GetHateRandomBot); /* prototype to pass -Wmissing-prototypes */
+XS(XS_Mob_GetHateRandomBot) {
+	dXSARGS;
+	if (items != 1)
+		Perl_croak(aTHX_ "Usage: Mob::GetHateRandomBot(THIS)"); // @categories Hate and Aggro
+	{
+		Mob* THIS;
+		Bot* RETVAL;
+		VALIDATE_THIS_IS_MOB;
+		RETVAL = THIS->GetHateRandomBot();
+		ST(0) = sv_newmortal();
+		sv_setref_pv(ST(0), "Bot", (void *) RETVAL);
 	}
 	XSRETURN(1);
 }
@@ -6669,6 +6758,8 @@ XS(boot_Mob) {
 	newXSproto(strcpy(buf, "HasOwner"), XS_Mob_HasOwner, file, "$");
 	newXSproto(strcpy(buf, "IsPet"), XS_Mob_IsPet, file, "$");
 	newXSproto(strcpy(buf, "HasPet"), XS_Mob_HasPet, file, "$");
+	newXSproto(strcpy(buf, "RemovePet"), XS_Mob_RemovePet, file, "$");
+	newXSproto(strcpy(buf, "SetPet"), XS_Mob_SetPet, file, "$$");
 	newXSproto(strcpy(buf, "IsSilenced"), XS_Mob_IsSilenced, file, "$");
 	newXSproto(strcpy(buf, "IsAmnesiad"), XS_Mob_IsAmnesiad, file, "$");
 	newXSproto(strcpy(buf, "GetMeleeMitigation"), XS_Mob_GetMeleeMitigation, file, "$");
@@ -6686,8 +6777,11 @@ XS(boot_Mob) {
 	newXSproto(strcpy(buf, "RemoveAllNimbusEffects"), XS_Mob_RemoveAllNimbusEffects, file, "$");
 	newXSproto(strcpy(buf, "AddNimbusEffect"), XS_Mob_AddNimbusEffect, file, "$$");
 	newXSproto(strcpy(buf, "ShieldAbility"), XS_Mob_ShieldAbility, file, "$$$$$$$$");
+	newXSproto(strcpy(buf, "GetHateRandomClient"), XS_Mob_GetHateRandomClient, file, "$");
+	newXSproto(strcpy(buf, "GetHateRandomNPC"), XS_Mob_GetHateRandomNPC, file, "$");
 #ifdef BOTS
 	newXSproto(strcpy(buf, "CastToBot"), XS_Mob_CastToBot, file, "$");
+	newXSproto(strcpy(buf, "GetHateRandomBot"), XS_Mob_GetHateRandomBot, file, "$");
 #endif
 	XSRETURN_YES;
 }

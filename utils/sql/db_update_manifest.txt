@@ -433,6 +433,9 @@
 9176|2021_10_03_disable_item_focus_effect.sql
 9177|2021_10_08_autofire_tgb_rules.sql
 9178|2021_11_01_pvp_spells.sql
+9179|2021_09_14_zone_lava_damage.sql
+9180|2021_10_09_not_null_door_columns.sql
+
 
 # Upgrade conditions:
 # 	This won't be needed after this system is implemented, but it is used database that are not

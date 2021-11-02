@@ -340,6 +340,9 @@ public:
 	bool GetRevoked() const { return revoked; }
 	void SetRevoked(bool rev) { revoked = rev; }
 	inline uint32 GetIP() const { return ip; }
+	std::string GetIPString();
+	int GetIPExemption();
+	void SetIPExemption(int exemption_amount);
 	inline bool GetHideMe() const { return gm_hide_me; }
 	void SetHideMe(bool hm);
 	inline uint16 GetPort() const { return port; }
@@ -728,6 +731,7 @@ public:
 	void Stun(int duration);
 	void UnStun();
 	void ReadBook(BookRequest_Struct *book);
+	void ReadBookByName(std::string book_name, uint8 book_type);
 	void QuestReadBook(const char* text, uint8 type);
 	void SendClientMoneyUpdate(uint8 type,uint32 amount);
 	void SendMoneyUpdate();
@@ -806,10 +810,15 @@ public:
 	std::vector<int> GetMemmedSpells();
 	std::vector<int> GetScribeableSpells(uint8 min_level = 1, uint8 max_level = 0);
 	std::vector<int> GetScribedSpells();
-	void ScribeSpell(uint16 spell_id, int slot, bool update_client = true);
-	void UnscribeSpell(int slot, bool update_client = true);
+	// defer save used when bulk saving
+	void ScribeSpell(uint16 spell_id, int slot, bool update_client = true, bool defer_save = false);
+	void SaveSpells();
+	void SaveDisciplines();
+
+	// defer save used when bulk saving
+	void UnscribeSpell(int slot, bool update_client = true, bool defer_save = false);
 	void UnscribeSpellAll(bool update_client = true);
-	void UntrainDisc(int slot, bool update_client = true);
+	void UntrainDisc(int slot, bool update_client = true, bool defer_save = false);
 	void UntrainDiscAll(bool update_client = true);
 	void UntrainDiscBySpellID(uint16 spell_id, bool update_client = true);
 	bool SpellGlobalCheck(uint16 spell_id, uint32 char_id);
@@ -924,6 +933,7 @@ public:
 	void PutLootInInventory(int16 slot_id, const EQ::ItemInstance &inst, ServerLootItem_Struct** bag_item_data = 0);
 	bool AutoPutLootInInventory(EQ::ItemInstance& inst, bool try_worn = false, bool try_cursor = true, ServerLootItem_Struct** bag_item_data = 0);
 	bool SummonItem(uint32 item_id, int16 charges = -1, uint32 aug1 = 0, uint32 aug2 = 0, uint32 aug3 = 0, uint32 aug4 = 0, uint32 aug5 = 0, uint32 aug6 = 0, bool attuned = false, uint16 to_slot = EQ::invslot::slotCursor, uint32 ornament_icon = 0, uint32 ornament_idfile = 0, uint32 ornament_hero_model = 0);
+	void SummonBaggedItems(uint32 bag_item_id, const std::vector<ServerLootItem_Struct>& bag_items);
 	void SetStats(uint8 type,int16 set_val);
 	void IncStats(uint8 type,int16 increase_val);
 	void DropItem(int16 slot_id, bool recurse = true);
@@ -1051,6 +1061,7 @@ public:
 	void SendTaskRequestCooldownTimerMessage();
 	void StartTaskRequestCooldownTimer();
 	inline ClientTaskState *GetTaskState() const { return task_state; }
+	inline bool HasTaskState() { if (task_state) { return true; } return false; }
 	inline void CancelTask(int task_index, TaskType task_type)
 	{
 		if (task_state) {
@@ -1102,15 +1113,6 @@ public:
 				this,
 				task_id,
 				activity_id
-			);
-		}
-	}
-	inline void UpdateTasksOnKill(int npc_type_id)
-	{
-		if (task_state) {
-			task_state->UpdateTasksOnKill(
-				this,
-				npc_type_id
 			);
 		}
 	}
@@ -1292,6 +1294,9 @@ public:
 	bool m_shared_task_update            = false;
 	bool m_requested_shared_task_removal = false;
 
+	std::vector<Client*> GetPartyMembers();
+	void HandleUpdateTasksOnKill(uint32 npc_type_id);
+
 	inline const EQ::versions::ClientVersion ClientVersion() const { return m_ClientVersion; }
 	inline const uint32 ClientVersionBit() const { return m_ClientVersionBit; }
 	inline void SetClientVersion(EQ::versions::ClientVersion client_version) { m_ClientVersion = client_version; }
@@ -1341,8 +1346,7 @@ public:
 	uint32 GetLDoNWinsTheme(uint32 t);
 	uint32 GetLDoNLossesTheme(uint32 t);
 	uint32 GetLDoNPointsTheme(uint32 t);
-	void AddLDoNWin(uint32 theme_id);
-	void AddLDoNLoss(uint32 theme_id);
+	void UpdateLDoNWinLoss(uint32 theme_id, bool win = false, bool remove = false);
 	void CheckLDoNHail(Mob *target);
 	void CheckEmoteHail(Mob *target, const char* message);
 

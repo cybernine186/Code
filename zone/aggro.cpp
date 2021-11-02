@@ -822,8 +822,6 @@ bool Mob::CombatRange(Mob* other, float fixed_size_mod, bool aeRampage)
 		size_mod *= 2.25;
 	}
 
-	LogAggro("Range: Race [{}]\n", size_mod);
-
 	size_mod *= RuleR(Combat,HitBoxMod);		// used for testing sizemods on different races.
 	size_mod *= fixed_size_mod;					// used to extend the size_mod
 	

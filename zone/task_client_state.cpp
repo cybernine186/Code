@@ -581,11 +581,6 @@ bool ClientTaskState::UnlockActivities(int character_id, ClientTaskInformation &
 	return false;
 }
 
-void ClientTaskState::UpdateTasksOnKill(Client *client, int npc_type_id)
-{
-	UpdateTasksByNPC(client, TaskActivityType::Kill, npc_type_id);
-}
-
 bool ClientTaskState::UpdateTasksOnSpeakWith(Client *client, int npc_type_id)
 {
 	return UpdateTasksByNPC(client, TaskActivityType::SpeakWith, npc_type_id);
@@ -1159,17 +1154,13 @@ void ClientTaskState::IncrementDoneCount(
 	}
 
 	if (!ignore_quest_update) {
-		char buf[24];
-		snprintf(
-			buf,
-			23,
-			"%d %d %d",
+		std::string export_string = fmt::format(
+			"{} {} {}",
 			info->activity[activity_id].done_count,
 			info->activity[activity_id].activity_id,
 			info->task_id
 		);
-		buf[23] = '\0';
-		parse->EventPlayer(EVENT_TASK_UPDATE, client, buf, 0);
+		parse->EventPlayer(EVENT_TASK_UPDATE, client, export_string, 0);
 	}
 
 	info->activity[activity_id].updated = true;
@@ -1194,10 +1185,12 @@ void ClientTaskState::IncrementDoneCount(
 		client->MessageString(Chat::White, TASK_UPDATED, task_information->title.c_str());
 
 		if (!ignore_quest_update) {
-			char buf[24];
-			snprintf(buf, 23, "%d %d", info->task_id, info->activity[activity_id].activity_id);
-			buf[23] = '\0';
-			parse->EventPlayer(EVENT_TASK_STAGE_COMPLETE, client, buf, 0);
+			std::string export_string = fmt::format(
+				"{} {}",
+				info->task_id,
+				info->activity[activity_id].activity_id
+			);
+			parse->EventPlayer(EVENT_TASK_STAGE_COMPLETE, client, export_string, 0);
 		}
 		/* QS: PlayerLogTaskUpdates :: Update */
 		if (RuleB(QueryServ, PlayerLogTaskUpdates)) {
@@ -1215,17 +1208,13 @@ void ClientTaskState::IncrementDoneCount(
 		// updated in UnlockActivities. Send the completed task list to the
 		// client. This is the same sequence the packets are sent on live.
 		if (task_complete) {
-			char buf[24];
-			snprintf(
-				buf,
-				23,
-				"%d %d %d",
+			std::string export_string = fmt::format(
+				"{} {} {}",
 				info->activity[activity_id].done_count,
 				info->activity[activity_id].activity_id,
 				info->task_id
 			);
-			buf[23] = '\0';
-			parse->EventPlayer(EVENT_TASK_COMPLETE, client, buf, 0);
+			parse->EventPlayer(EVENT_TASK_COMPLETE, client, export_string, 0);
 
 			/* QS: PlayerLogTaskUpdates :: Complete */
 			if (RuleB(QueryServ, PlayerLogTaskUpdates)) {
@@ -2668,29 +2657,26 @@ void ClientTaskState::ListTaskTimers(Client* client)
 void ClientTaskState::AddReplayTimer(Client* client, ClientTaskInformation& client_task, TaskInformation& task)
 {
 	// world adds timers for shared tasks and handles messages
-	if (task.type != TaskType::Shared && task.replay_timer_seconds > 0 && client)
+	if (task.type != TaskType::Shared && task.replay_timer_seconds > 0)
 	{
-		int expire_time = client_task.accepted_time + task.replay_timer_seconds;
+		// solo task replay timers are based on completion time
+		auto expire_time = std::time(nullptr) + task.replay_timer_seconds;
 
-		auto seconds = expire_time - std::time(nullptr);
-		if (seconds > 0) // not already expired
-		{
-			auto timer = CharacterTaskTimersRepository::NewEntity();
-			timer.character_id = client->CharacterID();
-			timer.task_id      = client_task.task_id;
-			timer.expire_time  = expire_time;
-			timer.timer_type   = static_cast<int>(TaskTimerType::Replay);
+		auto timer = CharacterTaskTimersRepository::NewEntity();
+		timer.character_id = client->CharacterID();
+		timer.task_id      = client_task.task_id;
+		timer.expire_time  = expire_time;
+		timer.timer_type   = static_cast<int>(TaskTimerType::Replay);
 
-			CharacterTaskTimersRepository::InsertOne(database, timer);
+		CharacterTaskTimersRepository::InsertOne(database, timer);
 
-			client->Message(Chat::Yellow, fmt::format(
-				SharedTaskMessage::GetEQStr(SharedTaskMessage::RECEIVED_REPLAY_TIMER),
-				task.title,
-				fmt::format_int(seconds / 86400).c_str(),       // days
-				fmt::format_int((seconds / 3600) % 24).c_str(), // hours
-				fmt::format_int((seconds / 60) % 60).c_str()    // minutes
-			).c_str());
-		}
+		client->Message(Chat::Yellow, fmt::format(
+			SharedTaskMessage::GetEQStr(SharedTaskMessage::RECEIVED_REPLAY_TIMER),
+			task.title,
+			fmt::format_int(task.replay_timer_seconds / 86400).c_str(),       // days
+			fmt::format_int((task.replay_timer_seconds / 3600) % 24).c_str(), // hours
+			fmt::format_int((task.replay_timer_seconds / 60) % 60).c_str()    // minutes
+		).c_str());
 	}
 }
 
@@ -2737,112 +2723,6 @@ void ClientTaskState::SyncSharedTaskZoneClientDoneCountState(
 	}
 }
 
-void ClientTaskState::HandleUpdateTasksOnKill(Client *client, uint32 npc_type_id)
-{
-	if (!HasActiveTasks()) {
-		return;
-	}
-
-	// loop over the union of tasks and quests
-	for (auto &active_task : m_active_tasks) {
-		auto current_task = &active_task;
-		if (current_task->task_id == TASKSLOTEMPTY) {
-			continue;
-		}
-
-		// Check if there are any active kill activities for this p_task_data
-		auto p_task_data = task_manager->m_task_data[current_task->task_id];
-		if (p_task_data == nullptr) {
-			return;
-		}
-
-		for (int activity_id = 0; activity_id < p_task_data->activity_count; activity_id++) {
-			ClientActivityInformation *client_activity = &current_task->activity[activity_id];
-			ActivityInformation       *activity_info   = &p_task_data->activity_information[activity_id];
-
-			// We are not interested in completed or hidden activities
-			if (client_activity->activity_state != ActivityActive) {
-				continue;
-			}
-
-			// We are only interested in Kill activities
-			if (activity_info->activity_type != TaskActivityType::Kill) {
-				continue;
-			}
-
-			// Is there a zone restriction on the activity_information ?
-			if (!activity_info->CheckZone(zone->GetZoneID())) {
-				LogTasks(
-					"[HandleUpdateTasksOnKill] character [{}] task_id [{}] activity_id [{}] activity_type [{}] for NPC [{}] failed zone check",
-					client->GetName(),
-					current_task->task_id,
-					activity_id,
-					static_cast<int32_t>(TaskActivityType::Kill),
-					npc_type_id
-				);
-				continue;
-			}
-			// Is the activity_information to kill this type of NPC ?
-			switch (activity_info->goal_method) {
-				case METHODSINGLEID:
-					if (activity_info->goal_id != npc_type_id) {
-						LogTasksDetail("[HandleUpdateTasksOnKill] Matched single goal");
-						continue;
-					}
-					break;
-
-				case METHODLIST:
-					if (!task_manager->m_goal_list_manager.IsInList(
-						activity_info->goal_id,
-						(int) npc_type_id
-					)) {
-						LogTasksDetail("[HandleUpdateTasksOnKill] Matched list goal");
-						continue;
-					}
-					break;
-
-				default:
-					// If METHODQUEST, don't updated the activity_information here
-					continue;
-			}
-
-			LogTasksDetail("[HandleUpdateTasksOnKill] passed checks");
-
-			// handle actual update
-			// legacy eqemu task update logic loops through group on kill of npc to update a single task
-			if (p_task_data->type != TaskType::Shared) {
-				LogTasksDetail("[HandleUpdateTasksOnKill] Non-Shared Update");
-
-				Raid *raid = entity_list.GetRaidByClient(client);
-				if (raid) {
-					for (auto &e : raid->members) {
-						if (e.member && e.member->IsClient()) {
-							Client *c = e.member->CastToClient();
-							c->UpdateTasksOnKill(npc_type_id);
-						}
-					}
-					return;
-				}
-
-				Group *group = entity_list.GetGroupByClient(client);
-				if (group) {
-					for (auto &m : group->members) {
-						if (m && m->IsClient()) {
-							Client *c = m->CastToClient();
-							c->UpdateTasksOnKill(npc_type_id);
-						}
-					}
-					return;
-				}
-			}
-
-			LogTasksDetail("[HandleUpdateTasksOnKill] Shared update");
-
-			// shared tasks only require one client to receive an update to propagate
-			client->UpdateTasksOnKill(npc_type_id);
-		}
-	}
-}
 bool ClientTaskState::HasActiveTasks()
 {
 	if (!task_manager) {

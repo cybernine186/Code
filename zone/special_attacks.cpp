@@ -156,6 +156,9 @@ void Mob::DoSpecialAttackDamage(Mob *who, EQ::skills::SkillType skill, int32 bas
 	if (my_hit.base_damage == 0)
 		my_hit.base_damage = GetBaseSkillDamage(my_hit.skill);
 
+	if (base_damage == DMG_INVULNERABLE)
+		my_hit.damage_done = DMG_INVULNERABLE;
+
 	if (who->GetInvul() || who->GetSpecialAbility(IMMUNE_MELEE))
 		my_hit.damage_done = DMG_INVULNERABLE;
 
@@ -835,9 +838,9 @@ void Mob::DoArcheryAttackDmg(Mob *other, const EQ::ItemInstance *RangeWeapon, co
 		return;
 	}
 
-	// unsure when this should happen
-	if (focus) // From FcBaseEffects
+	if (focus) {
 		WDmg += WDmg * focus / 100;
+	}
 
 	if (WDmg > 0 || ADmg > 0) {
 		if (WDmg < 0)
@@ -1644,8 +1647,6 @@ void NPC::DoClassAttacks(Mob *target) {
 			break;
 		}
 		case WARRIOR: case WARRIORGM:{
-			// Voidd: TODO - Create Rule to allow NPC Pets to Kick?
-			// if(level >= RuleI(Combat, NPCBashKickLevel) && !IsPet()){
 			if(level >= RuleI(Combat, NPCBashKickLevel)){
 				if(zone->random.Roll(75)) { //tested on live, warrior mobs both kick and bash, kick about 75% of the time, casting doesn't seem to make a difference.
 					DoAnim(animKick, 0, false);
@@ -2179,8 +2180,9 @@ void Mob::DoMeleeSkillAttackDmg(Mob *other, uint16 weapon_damage, EQ::skills::Sk
 		hate = weapon_damage;
 
 	if (weapon_damage > 0) {
-		if (focus) // From FcBaseEffects
+		if (focus) {
 			weapon_damage += weapon_damage * focus / 100;
+		}
 
 		if (skillinuse == EQ::skills::SkillBash) {
 			if (IsClient()) {

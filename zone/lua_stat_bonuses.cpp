@@ -342,7 +342,7 @@ int Lua_StatBonuses::Getadjusted_casting_skill() const {
 
 int Lua_StatBonuses::Getreflect_chance() const {
 	Lua_Safe_Call_Int();
-	return self->reflect_chance;
+	return self->reflect[SBIndex::REFLECT_CHANCE];
 }
 
 uint32 Lua_StatBonuses::GetsingingMod() const {
@@ -678,7 +678,6 @@ int Lua_StatBonuses::GetXPRateMod() const {
 bool Lua_StatBonuses::GetBlockNextSpell() const {
 	Lua_Safe_Call_Bool();
 	//return self->BlockNextSpell; bonus no longer used due to effect being a focus
-	return false;
 }
 
 bool Lua_StatBonuses::GetImmuneToFlee() const {

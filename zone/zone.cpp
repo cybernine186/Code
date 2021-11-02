@@ -150,10 +150,18 @@ bool Zone::Bootup(uint32 iZoneID, uint32 iInstanceID, bool iStaticZone) {
 	}
 
 	LogInfo("---- Zone server [{}], listening on port:[{}] ----", zonename, ZoneConfig::get()->ZonePort);
-	LogInfo("Zone Bootup: [{}] ([{}]: [{}])", zonename, iZoneID, iInstanceID);
+	LogInfo("Zone Bootup: [{}] [{}] ([{}]: [{}])",
+		(iStaticZone) ? "Static" : "Dynamic", zonename, iZoneID, iInstanceID);
 	parse->Init();
 	UpdateWindowTitle(nullptr);
-	zone->GetTimeSync();
+
+	// Dynamic zones need to Sync here.
+	// Static zones sync when they connect in worldserver.cpp.
+	// Static zones cannot sync here as request is ignored by worldserver.
+	if (!iStaticZone)
+	{
+		zone->GetTimeSync();
+	}
 
 	zone->RequestUCSServerStatus();
 
@@ -198,24 +206,27 @@ bool Zone::LoadZoneObjects()
 			if (!shortname)
 				continue;
 
-			Door d;
-			memset(&d, 0, sizeof(d));
+			// todo: clean up duplicate code with command_object
+			auto d = DoorsRepository::NewEntity();
 
-			strn0cpy(d.zone_name, shortname, sizeof(d.zone_name));
-			d.db_id = 1000000000 + atoi(row[0]); // Out of range of normal use for doors.id
-			d.door_id = -1;			     // Client doesn't care if these are all the same door_id
+			d.zone = shortname;
+			d.id = 1000000000 + atoi(row[0]); // Out of range of normal use for doors.id
+			d.doorid = -1; // Client doesn't care if these are all the same door_id
 			d.pos_x = atof(row[2]);		     // xpos
 			d.pos_y = atof(row[3]);		     // ypos
 			d.pos_z = atof(row[4]);		     // zpos
 			d.heading = atof(row[5]);	    // heading
 
-			strn0cpy(d.door_name, row[8], sizeof(d.door_name)); // objectname
-			// Strip trailing "_ACTORDEF" if present. Client won't accept it for doors.
-			int len = strlen(d.door_name);
-			if ((len > 9) && (memcmp(&d.door_name[len - 9], "_ACTORDEF", 10) == 0))
-				d.door_name[len - 9] = '\0';
+			d.name = row[8]; // objectname
 
-			memcpy(d.dest_zone, "NONE", 5);
+			// Strip trailing "_ACTORDEF" if present. Client won't accept it for doors.
+			int pos = d.name.size() - strlen("_ACTORDEF");
+			if (pos > 0 && d.name.compare(pos, std::string::npos, "_ACTORDEF") == 0)
+			{
+				d.name.erase(pos);
+			}
+
+			d.dest_zone = "NONE";
 
 			if ((d.size = atoi(row[11])) == 0) // unknown08 = optional size percentage
 				d.size = 100;
@@ -233,7 +244,7 @@ bool Zone::LoadZoneObjects()
 			d.incline = atoi(row[13]);	  // unknown20 = optional model incline value
 			d.client_version_mask = 0xFFFFFFFF; // We should load the mask from the zone.
 
-			auto door = new Doors(&d);
+			auto door = new Doors(d);
 			entity_list.AddDoor(door);
 		}
 
@@ -913,29 +924,19 @@ void Zone::LoadZoneDoors(const char* zone, int16 version)
 {
 	LogInfo("Loading doors for [{}] ", zone);
 
-	uint32 maxid;
-	int32 count = content_db.GetDoorsCount(&maxid, zone, version);
-	if(count < 1) {
+	auto door_entries = content_db.LoadDoors(zone, version);
+	if (door_entries.empty())
+	{
 		LogInfo("No doors loaded");
 		return;
 	}
 
-	auto dlist = new Door[count];
-
-	if(!content_db.LoadDoors(count, dlist, zone, version)) {
-		LogError("Failed to load doors");
-		delete[] dlist;
-		return;
-	}
-
-	int r;
-	Door *d = dlist;
-	for(r = 0; r < count; r++, d++) {
-		auto newdoor = new Doors(d);
+	for (const auto& entry : door_entries)
+	{
+		auto newdoor = new Doors(entry);
 		entity_list.AddDoor(newdoor);
-		Log(Logs::Detail, Logs::Doors, "Door Add to Entity List, index: %u db id: %u, door_id %u", r, dlist[r].db_id, dlist[r].door_id);
+		LogDoorsDetail("Door added to entity list, db id: [{}], door_id: [{}]", entry.id, entry.doorid);
 	}
-	delete[] dlist;
 }
 
 Zone::Zone(uint32 in_zoneid, uint32 in_instanceid, const char* in_short_name)
@@ -1819,7 +1820,8 @@ void Zone::Repop(uint32 delay)
 
 void Zone::GetTimeSync()
 {
-	if (worldserver.Connected() && !zone_has_current_time) {
+	if (!zone_has_current_time) {
+		LogInfo("Requesting world time");
 		auto pack = new ServerPacket(ServerOP_GetWorldTime, 1);
 		worldserver.SendPacket(pack);
 		safe_delete(pack);

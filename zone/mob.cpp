@@ -26,6 +26,7 @@
 #include "worldserver.h"
 #include "mob_movement_manager.h"
 #include "water_map.h"
+#include "dialogue_window.h"
 
 #include <limits.h>
 #include <math.h>
@@ -102,7 +103,6 @@ Mob::Mob(
 	ranged_timer(2000),
 	tic_timer(6000),
 	mana_timer(2000),
-	focus_proc_limit_timer(250),
 	spellend_timer(0),
 	rewind_timer(30000),
 	bindwound_timer(10000),
@@ -349,6 +349,11 @@ Mob::Mob(
 		ProjectileAtk[i].speed_mod     = 0.0f;
 	}
 
+	for (int i = 0; i < MAX_FOCUS_PROC_LIMIT_TIMERS; i++) {
+		focusproclimit_spellid[i] = 0;
+		focusproclimit_timer[i].Disable();
+	}
+
 	memset(&itembonuses, 0, sizeof(StatBonuses));
 	memset(&spellbonuses, 0, sizeof(StatBonuses));
 	memset(&aabonuses, 0, sizeof(StatBonuses));
@@ -366,6 +371,7 @@ Mob::Mob(
 	pet_regroup       = false;
 	_IsTempPet        = false;
 	pet_owner_client  = false;
+	pet_owner_npc     = false;
 	pet_targetlock_id = 0;
 
 	attacked_count = 0;
@@ -404,10 +410,6 @@ Mob::Mob(
 	roamer = false;
 	rooted = false;
 	charmed = false;
-	has_virus = false;
-	for (int i = 0; i < MAX_SPELL_TRIGGER * 2; i++) {
-		viral_spells[i] = 0;
-	}
 
 	weaponstance.enabled = false;
 	weaponstance.spellbonus_enabled = false;	//Set when bonus is applied
@@ -1335,11 +1337,9 @@ void Mob::CreateHPPacket(EQApplicationPacket* app)
 	{
 		if (ds->hp < GetNextHPEvent())
 		{
-			char buf[10];
-			snprintf(buf, 9, "%i", GetNextHPEvent());
-			buf[9] = '\0';
+			std::string buf = fmt::format("{}", GetNextHPEvent());
 			SetNextHPEvent(-1);
-			parse->EventNPC(EVENT_HP, CastToNPC(), nullptr, buf, 0);
+			parse->EventNPC(EVENT_HP, CastToNPC(), nullptr, buf.c_str(), 0);
 		}
 	}
 
@@ -1347,11 +1347,9 @@ void Mob::CreateHPPacket(EQApplicationPacket* app)
 	{
 		if (ds->hp > GetNextIncHPEvent())
 		{
-			char buf[10];
-			snprintf(buf, 9, "%i", GetNextIncHPEvent());
-			buf[9] = '\0';
+			std::string buf = fmt::format("{}", GetNextIncHPEvent());
 			SetNextIncHPEvent(-1);
-			parse->EventNPC(EVENT_HP, CastToNPC(), nullptr, buf, 1);
+			parse->EventNPC(EVENT_HP, CastToNPC(), nullptr, buf.c_str(), 1);
 		}
 	}
 }
@@ -1371,20 +1369,18 @@ void Mob::SendHPUpdate(bool force_update_all)
 				last_hp
 			);
 
-			if (CastToClient()->ClientVersion() >= EQ::versions::ClientVersion::SoD) {
-				auto client_packet     = new EQApplicationPacket(OP_HPUpdate, sizeof(SpawnHPUpdate_Struct));
-				auto *hp_packet_client = (SpawnHPUpdate_Struct *) client_packet->pBuffer;
+			auto client_packet     = new EQApplicationPacket(OP_HPUpdate, sizeof(SpawnHPUpdate_Struct));
+			auto *hp_packet_client = (SpawnHPUpdate_Struct *) client_packet->pBuffer;
 
-				hp_packet_client->cur_hp   = static_cast<uint32>(CastToClient()->GetHP() - itembonuses.HP);
-				hp_packet_client->spawn_id = GetID();
-				hp_packet_client->max_hp   = CastToClient()->GetMaxHP() - itembonuses.HP;
+			hp_packet_client->cur_hp   = static_cast<uint32>(CastToClient()->GetHP() - itembonuses.HP);
+			hp_packet_client->spawn_id = GetID();
+			hp_packet_client->max_hp   = CastToClient()->GetMaxHP() - itembonuses.HP;
 
-				CastToClient()->QueuePacket(client_packet);
+			CastToClient()->QueuePacket(client_packet);
 
-				safe_delete(client_packet);
+			safe_delete(client_packet);
 
-				ResetHPUpdateTimer();
-			}
+			ResetHPUpdateTimer();
 
 			// Used to check if HP has changed to update self next round
 			last_hp = current_hp;
@@ -1767,21 +1763,21 @@ void Mob::SendIllusionPacket(
 
 	race = in_race;
 	if (race == 0) {
-		race = (use_model) ? use_model : GetBaseRace();
+		race = use_model ? use_model : GetBaseRace();
 	}
 
 	if (in_gender != 0xFF) {
 		gender = in_gender;
 	}
 	else {
-		gender = (in_race) ? GetDefaultGender(race, gender) : GetBaseGender();
+		gender = in_race ? GetDefaultGender(race, gender) : GetBaseGender();
 	}
 
-	if (in_texture == 0xFF && !IsPlayerRace(in_race)) {
+	if (in_texture == 0xFF && !IsPlayerRace(race)) {
 		new_texture = GetTexture();
 	}
 
-	if (in_helmtexture == 0xFF && !IsPlayerRace(in_race)) {
+	if (in_helmtexture == 0xFF && !IsPlayerRace(race)) {
 		new_helmtexture = GetHelmTexture();
 	}
 
@@ -1814,38 +1810,10 @@ void Mob::SendIllusionPacket(
 		new_drakkin_heritage = drakkin_heritage = CastToClient()->GetBaseHeritage();
 		new_drakkin_tattoo   = drakkin_tattoo   = CastToClient()->GetBaseTattoo();
 		new_drakkin_details  = drakkin_details  = CastToClient()->GetBaseDetails();
-		switch (race) {
-			case OGRE:
-				size = 9;
-				break;
-			case TROLL:
-				size = 8;
-				break;
-			case VAHSHIR:
-			case BARBARIAN:
-				size = 7;
-				break;
-			case HALF_ELF:
-			case WOOD_ELF:
-			case DARK_ELF:
-			case FROGLOK:
-				size = 5;
-				break;
-			case DWARF:
-				size = 4;
-				break;
-			case HALFLING:
-			case GNOME:
-				size = 3;
-				break;
-			default:
-				size = 6;
-				break;
-		}
 	}
 
 	// update internal values for mob
-	size             = (in_size <= 0.0f) ? GetSize() : in_size;
+	size             = (in_size <= 0.0f) ? GetRaceGenderDefaultHeight(race, gender) : in_size;
 	texture          = new_texture;
 	helmtexture      = new_helmtexture;
 	haircolor        = new_haircolor;
@@ -2976,16 +2944,35 @@ void Mob::Say(const char *format, ...)
 		talker = this;
 	}
 
-	if (RuleB(Chat, AutoInjectSaylinksToSay)) {
+	int16 distance = 200;
+
+	if (RuleB(Chat, QuestDialogueUsesDialogueWindow)) {
+		for (auto &e : entity_list.GetCloseMobList(talker, (distance * distance))) {
+			Mob *mob = e.second;
+
+			if (!mob->IsClient()) {
+				continue;
+			}
+
+			Client *client = mob->CastToClient();
+			if (client->GetTarget() && client->GetTarget()->IsMob() && client->GetTarget()->CastToMob() == talker) {
+				std::string window_markdown = buf;
+				DialogueWindow::Render(client, window_markdown);
+			}
+		}
+
+		return;
+	}
+	else if (RuleB(Chat, AutoInjectSaylinksToSay)) {
 		std::string new_message = EQ::SayLinkEngine::InjectSaylinksIfNotExist(buf);
 		entity_list.MessageCloseString(
-			talker, false, 200, 10,
+			talker, false, distance, Chat::NPCQuestSay,
 			GENERIC_SAY, GetCleanName(), new_message.c_str()
 		);
 	}
 	else {
 		entity_list.MessageCloseString(
-			talker, false, 200, 10,
+			talker, false, distance, Chat::NPCQuestSay,
 			GENERIC_SAY, GetCleanName(), buf
 		);
 	}
@@ -3880,20 +3867,6 @@ int32 Mob::GetPositionalDmgTakenAmt(Mob *attacker)
 	return total_amt;
 }
 
-
-int16 Mob::GetHealRate(uint16 spell_id, Mob* caster) {
-
-	int16 heal_rate = 0;
-
-	heal_rate += itembonuses.HealRate + spellbonuses.HealRate + aabonuses.HealRate;
-	heal_rate += GetFocusIncoming(focusFcHealPctIncoming, SE_FcHealPctIncoming, caster, spell_id);
-
-	if(heal_rate < -99)
-		heal_rate = -99;
-
-	return heal_rate;
-}
-
 void Mob::SetBottomRampageList()
 {
 	auto &mob_list = entity_list.GetCloseMobList(this);
@@ -4398,7 +4371,7 @@ bool Mob::TrySpellOnDeath()
 			}
 		}
 
-	BuffFadeAll();
+	BuffFadeNonPersistDeath();
 	return false;
 	//You should not be able to use this effect and survive (ALWAYS return false),
 	//attempting to place a heal in these effects will still result
@@ -4622,19 +4595,6 @@ bool Mob::TryDoubleMeleeRoundEffect() {
 	return false;
 }
 
-bool Mob::TryReflectSpell(uint32 spell_id)
-{
-	if (!spells[spell_id].reflectable)
- 		return false;
-
-	int chance = itembonuses.reflect_chance + spellbonuses.reflect_chance + aabonuses.reflect_chance;
-
-	if(chance && zone->random.Roll(chance))
-		return true;
-
-	return false;
-}
-
 void Mob::DoGravityEffect()
 {
 	Mob *caster = nullptr;
@@ -4722,28 +4682,6 @@ void Mob::DoGravityEffect()
 			this->CastToClient()->MovePC(zone->GetZoneID(), zone->GetInstanceID(), cur_x, cur_y, new_ground, GetHeading());
 		else
 			this->GMMove(cur_x, cur_y, new_ground, GetHeading());
-	}
-}
-
-void Mob::SpreadVirus(uint16 spell_id, uint16 casterID)
-{
-	int num_targs = spells[spell_id].viral_targets;
-
-	Mob* caster = entity_list.GetMob(casterID);
-	Mob* target = nullptr;
-	// Only spread in zones without perm buffs
-	if(!zone->BuffTimersSuspended()) {
-		for(int i = 0; i < num_targs; i++) {
-			target = entity_list.GetTargetForVirus(this, spells[spell_id].viral_range);
-			if(target) {
-				// Only spreads to the uninfected
-				if(!target->FindBuff(spell_id)) {
-					if(caster)
-						caster->SpellOnTarget(spell_id, target);
-
-				}
-			}
-		}
 	}
 }
 

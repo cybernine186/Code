@@ -1130,7 +1130,8 @@ uint16 QuestManager::scribespells(uint8 max_level, uint8 min_level) {
 			if (initiator->HasSpellScribed(spell_id))
 				continue;
 
-			initiator->ScribeSpell(spell_id, book_slot);
+			// defer saving per spell and bulk save at the end
+			initiator->ScribeSpell(spell_id, book_slot, true, true);
 			book_slot = initiator->GetNextAvailableSpellBookSlot(book_slot);
 			spells_learned++;
 		}
@@ -1139,6 +1140,9 @@ uint16 QuestManager::scribespells(uint8 max_level, uint8 min_level) {
 	if (spells_learned > 0) {
 		std::string spell_message = (spells_learned == 1 ? "a new spell" : fmt::format("{} new spells", spells_learned));
 		initiator->Message(Chat::White, fmt::format("You have learned {}!", spell_message).c_str());
+
+		// bulk insert spells
+		initiator->SaveSpells();
 	}
 	return spells_learned;
 }
@@ -1761,14 +1765,30 @@ void QuestManager::addldonpoints(uint32 theme_id, int points) {
 
 void QuestManager::addldonloss(uint32 theme_id) {
 	QuestManagerCurrentQuestVars();
-	if(initiator)
-		initiator->AddLDoNLoss(theme_id);
+	if(initiator) {
+		initiator->UpdateLDoNWinLoss(theme_id);
+	}
 }
 
 void QuestManager::addldonwin(uint32 theme_id) {
 	QuestManagerCurrentQuestVars();
-	if(initiator)
-		initiator->AddLDoNWin(theme_id);
+	if(initiator) {
+		initiator->UpdateLDoNWinLoss(theme_id, true);
+	}
+}
+
+void QuestManager::removeldonloss(uint32 theme_id) {
+	QuestManagerCurrentQuestVars();
+	if(initiator) {
+		initiator->UpdateLDoNWinLoss(theme_id, false, true);
+	}
+}
+
+void QuestManager::removeldonwin(uint32 theme_id) {
+	QuestManagerCurrentQuestVars();
+	if(initiator) {
+		initiator->UpdateLDoNWinLoss(theme_id, true, true);
+	}
 }
 
 void QuestManager::setnexthpevent(int at) {
@@ -3326,12 +3346,11 @@ void QuestManager::UpdateZoneHeader(std::string type, std::string value) {
 		for (int i = 0; i < 4; i++) {
 			zone->newzone_data.fog_maxclip[i] = atof(value.c_str());
 		}
-	}
-	else if (strcasecmp(type.c_str(), "gravity") == 0)
+	} else if (strcasecmp(type.c_str(), "gravity") == 0) {
 		zone->newzone_data.gravity = atof(value.c_str());
-	else if (strcasecmp(type.c_str(), "time_type") == 0)
+	} else if (strcasecmp(type.c_str(), "time_type") == 0) {
 		zone->newzone_data.time_type = atoi(value.c_str());
-	else if (strcasecmp(type.c_str(), "rain_chance") == 0) {
+	} else if (strcasecmp(type.c_str(), "rain_chance") == 0) {
 		for (int i = 0; i < 4; i++) {
 			zone->newzone_data.rain_chance[i] = atoi(value.c_str());
 		}
@@ -3347,27 +3366,31 @@ void QuestManager::UpdateZoneHeader(std::string type, std::string value) {
 		for (int i = 0; i < 4; i++) {
 			zone->newzone_data.snow_duration[i] = atoi(value.c_str());
 		}
-	}
-	else if (strcasecmp(type.c_str(), "sky") == 0)
+	} else if (strcasecmp(type.c_str(), "sky") == 0) {
 		zone->newzone_data.sky = atoi(value.c_str());
-	else if (strcasecmp(type.c_str(), "safe_x") == 0)
+	} else if (strcasecmp(type.c_str(), "safe_x") == 0) {
 		zone->newzone_data.safe_x = atof(value.c_str());
-	else if (strcasecmp(type.c_str(), "safe_y") == 0)
+	} else if (strcasecmp(type.c_str(), "safe_y") == 0) {
 		zone->newzone_data.safe_y = atof(value.c_str());
-	else if (strcasecmp(type.c_str(), "safe_z") == 0)
+	} else if (strcasecmp(type.c_str(), "safe_z") == 0) {
 		zone->newzone_data.safe_z = atof(value.c_str());
-	else if (strcasecmp(type.c_str(), "max_z") == 0)
+	} else if (strcasecmp(type.c_str(), "max_z") == 0) {
 		zone->newzone_data.max_z = atof(value.c_str());
-	else if (strcasecmp(type.c_str(), "underworld") == 0)
+	} else if (strcasecmp(type.c_str(), "underworld") == 0) {
 		zone->newzone_data.underworld = atof(value.c_str());
-	else if (strcasecmp(type.c_str(), "minclip") == 0)
+	} else if (strcasecmp(type.c_str(), "minclip") == 0) {
 		zone->newzone_data.minclip = atof(value.c_str());
-	else if (strcasecmp(type.c_str(), "maxclip") == 0)
+	} else if (strcasecmp(type.c_str(), "maxclip") == 0) {
 		zone->newzone_data.maxclip = atof(value.c_str());
-	else if (strcasecmp(type.c_str(), "fog_density") == 0)
+	} else if (strcasecmp(type.c_str(), "fog_density") == 0) {
 		zone->newzone_data.fog_density = atof(value.c_str());
-	else if (strcasecmp(type.c_str(), "suspendbuffs") == 0)
+	} else if (strcasecmp(type.c_str(), "suspendbuffs") == 0) {
 		zone->newzone_data.SuspendBuffs = atoi(value.c_str());
+	} else if (strcasecmp(type.c_str(), "lavadamage") == 0) {
+		zone->newzone_data.LavaDamage = atoi(value.c_str());
+	} else if (strcasecmp(type.c_str(), "minlavadamage") == 0) {
+		zone->newzone_data.MinLavaDamage = atoi(value.c_str());
+	}
 
 	auto outapp = new EQApplicationPacket(OP_NewZone, sizeof(NewZone_Struct));
 	memcpy(outapp->pBuffer, &zone->newzone_data, outapp->size);
@@ -3459,6 +3482,17 @@ int QuestManager::getitemstat(uint32 item_id, std::string stat_identifier) {
 int QuestManager::getspellstat(uint32 spell_id, std::string stat_identifier, uint8 slot) {
 	QuestManagerCurrentQuestVars();
 	return GetSpellStatValue(spell_id, stat_identifier.c_str(), slot);
+}
+
+void QuestManager::CrossZoneDialogueWindow(uint8 update_type, int update_identifier, const char* message, const char* client_name) {
+	auto pack = new ServerPacket(ServerOP_CZDialogueWindow, sizeof(CZDialogueWindow_Struct));
+	CZDialogueWindow_Struct* CZDW = (CZDialogueWindow_Struct*)pack->pBuffer;
+	CZDW->update_type = update_type;
+	CZDW->update_identifier = update_identifier;
+	strn0cpy(CZDW->message, message, 4096);
+	strn0cpy(CZDW->client_name, client_name, 64);
+	worldserver.SendPacket(pack);
+	safe_delete(pack);
 }
 
 void QuestManager::CrossZoneLDoNUpdate(uint8 update_type, uint8 update_subtype, int update_identifier, uint32 theme_id, int points, const char* client_name) {
@@ -3561,6 +3595,16 @@ void QuestManager::CrossZoneTaskUpdate(uint8 update_type, uint8 update_subtype, 
 	CZTU->update_count = update_count;
 	CZTU->enforce_level_requirement = enforce_level_requirement;
 	strn0cpy(CZTU->client_name, client_name, 64);
+	worldserver.SendPacket(pack);
+	safe_delete(pack);
+}
+
+void QuestManager::WorldWideDialogueWindow(const char* message, uint8 min_status, uint8 max_status) {
+	auto pack = new ServerPacket(ServerOP_WWDialogueWindow, sizeof(WWDialogueWindow_Struct));
+	WWDialogueWindow_Struct* WWDW = (WWDialogueWindow_Struct*)pack->pBuffer;
+	strn0cpy(WWDW->message, message, 4096);
+	WWDW->min_status = min_status;
+	WWDW->max_status = max_status;
 	worldserver.SendPacket(pack);
 	safe_delete(pack);
 }
