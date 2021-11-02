@@ -176,7 +176,7 @@ public:
 
 	/* Adventure related. */
 
-	void UpdateAdventureStatsEntry(uint32 char_id, uint8 theme, bool win);
+	void UpdateAdventureStatsEntry(uint32 char_id, uint8 theme, bool win = false, bool remove = false);
 	bool GetAdventureStats(uint32 char_id, AdventureStats_Struct *as);
 
 	/* Account Related */
@@ -187,6 +187,7 @@ public:
 	bool	SetAccountStatus(const std::string& account_name, int16 status);
 	bool	SetLocalPassword(uint32 accid, const char* password);
 	bool	UpdateLiveChar(char* charname, uint32 account_id);
+
 	int16	CheckStatus(uint32 account_id);
 	uint64  GetAccountCRC1EQGame(uint32 accid);
 	uint64  GetAccountCRC2SkillCaps(uint32 accid);
@@ -200,7 +201,8 @@ public:
 	uint8	GetAgreementFlag(uint32 acctid);
 	void	GetAccountFromID(uint32 id, char* oAccountName, int16* oStatus);
 	void	SetAgreementFlag(uint32 acctid);
-	int		GetIPExemption(std::string account_ip);
+	int     GetIPExemption(std::string account_ip);
+	void    SetIPExemption(std::string account_ip, int exemption_amount);
 	int		SharedAccountCount(int account, int account2);
 	int		GetInstanceID(uint32 char_id, uint32 zone_id);
 

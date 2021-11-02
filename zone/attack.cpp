@@ -997,36 +997,35 @@ int Mob::GetWeaponDamage(Mob *against, const EQ::ItemData *weapon_item) {
 
 	//check to see if our weapons or fists are magical.
 	if (against->GetSpecialAbility(IMMUNE_MELEE_NONMAGICAL)) {
-		if (weapon_item) {
+		if (GetSpecialAbility(SPECATK_MAGICAL)) {
+			dmg = 1;
+		}
+		//On live this occurs for ALL NPC's >= 10
+		else if (IsNPC() && GetLevel() >= RuleI(Combat, NPCAttackMagicLevel)) {
+			dmg = 1;
+		}
+		else if (weapon_item) {
 			if (weapon_item->Magic) {
-				dmg = weapon_item->Damage;
-
-				//this is more for non weapon items, ex: boots for kick
-				//they don't have a dmg but we should be able to hit magical
-				dmg = dmg <= 0 ? 1 : dmg;
+				if (weapon_item->Damage && (weapon_item->IsType1HWeapon() || weapon_item->IsType2HWeapon())) {
+					dmg = weapon_item->Damage;
+				}
+				//Non weapon items, ie. boots for kick.
+				else if (weapon_item->ItemType == EQ::item::ItemTypeArmor) {
+					dmg = 1;
+				}
+				else {
+					return 0;
+				}
 			}
-			if (IsNPC() || HasOwner() && !GetOwner()->IsClient()) {
-				dmg = 1;
+			else {
+				return 0;
 			}
 		}
+		else if ((GetClass() == MONK || GetClass() == BEASTLORD) && GetLevel() >= 30) {
+			dmg = GetHandToHandDamage();
+		}
 		else {
-			if (IsNPC() || HasOwner() && !GetOwner()->IsClient()) {
-				dmg = 1;
-			}
-			else if ((GetClass() == MONK || GetClass() == BEASTLORD) && GetLevel() >= 30) {
-				dmg = GetHandToHandDamage();
-			}
-			else if (GetOwner() && GetLevel() >= RuleI(Combat, PetAttackMagicLevel)) {
-				//pets wouldn't actually use this but...
-				//it gives us an idea if we can hit due to the dual nature of this function
-				dmg = 1;
-			}
-			else if (GetSpecialAbility(SPECATK_MAGICAL))
-			{
-				dmg = 1;
-			}
-			else
-				return 0;
+			return 0;
 		}
 	}
 	else {
@@ -1616,7 +1615,7 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 	//Don't do PvP mitigation if the caster is damaging himself
 	//should this be applied to all damage? comments sound like some is for spell DMG
 	//patch notes on PVP reductions only mention archery/throwing ... not normal dmg
-	if (other && other->IsClient() && (other != this) && damage > 0) // Voidd: TODO - Does this require iBuffTic?
+	if (other && other->IsClient() && (other != this) && damage > 0)
 	{
 		int PvPMitigation = RuleI(World, PVPMeleeMitigation);
  		if (attack_skill == EQ::skills::SkillAbjuration ||  //spells
@@ -1666,9 +1665,14 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 	if (!spell)
 		spell = SPELL_UNKNOWN;
 
-	char buffer[64] = { 0 };
-	snprintf(buffer, 63, "%d %d %d %d %s", killerMob ? killerMob->GetID() : 0, damage, spell, static_cast<int>(attack_skill), killerMob ? killerMob->GetName() : "");
-	if (parse->EventPlayer(EVENT_DEATH, this, buffer, 0) != 0) {
+	std::string export_string = fmt::format(
+		"{} {} {} {}",
+		killerMob ? killerMob->GetID() : 0,
+		damage,
+		spell,
+		static_cast<int>(attack_skill)
+	);
+	if (parse->EventPlayer(EVENT_DEATH, this, export_string, 0) != 0) {
 		if (GetHP() < 0) {
 			SetHP(0);
 		}
@@ -1723,10 +1727,16 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 	// #2: figure out things that affect the player dying and mark them dead
 
 	InterruptSpell();
+
+	Mob* m_pet = GetPet();
 	SetPet(0);
 	SetHorseId(0);
 	ShieldAbilityClearVariables();
 	dead = true;
+
+	if (m_pet && m_pet->IsCharmed()) {
+		m_pet->BuffFadeByEffect(SE_Charm);
+	}
 
 	if (GetMerc()) {
 		GetMerc()->Suspend();
@@ -1901,20 +1911,16 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			exploss = 0;
 		}
 	}
-	char caster_name[64] = { 0 };
+
 	if (spell != SPELL_UNKNOWN)
 	{
 		uint32 buff_count = GetMaxTotalSlots();
 		for (uint16 buffIt = 0; buffIt < buff_count; buffIt++)
 		{
-			if (buffs[buffIt].spellid == spell)
+			if (buffs[buffIt].spellid == spell && buffs[buffIt].client)
 			{
-				strcpy(caster_name, buffs[buffIt].caster_name);
-				if (buffs[buffIt].client)
-				{
-					exploss = 0;	// no exp loss for pvp dot
-					break;
-				}
+				exploss = 0;	// no exp loss for pvp dot
+				break;
 			}
 		}
 	}
@@ -2073,11 +2079,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		QServ->PlayerLogEvent(Player_Log_Deaths, this->CharacterID(), event_desc);
 	}
 
-	if (killerMob && strlen(caster_name) > 0 && strcmp(killerMob->GetName(), caster_name) == -1)
-	{
-		snprintf(buffer, 63, "%d %d %d %d %s", 0, damage, spell, static_cast<int>(attack_skill), caster_name);
-	}
-	parse->EventPlayer(EVENT_DEATH_COMPLETE, this, buffer, 0);
+	parse->EventPlayer(EVENT_DEATH_COMPLETE, this, export_string, 0);
 	return true;
 }
 
@@ -2257,7 +2259,7 @@ bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 		other->AddToHateList(this, hate);
 
 		if (other->IsClient() && IsPet() && GetOwner()->IsClient()) {
-			my_hit.damage_done = std::max(my_hit.damage_done * RuleI(World, PVPPetDamageMitigation) / 100, 0); //set to 0 so that pets dont always hit for 1 -Gangsta
+			my_hit.damage_done = std::max(my_hit.damage_done * RuleI(World, PVPPetDamageMitigation) / 100, 0);
 		}
 
 		LogCombat("Final damage against [{}]: [{}]", other->GetName(), my_hit.damage_done);
@@ -2358,11 +2360,8 @@ bool NPC::Death(Mob* killer_mob, int32 damage, uint16 spell, EQ::skills::SkillTy
 	Mob *oos = nullptr;
 	if (killer_mob) {
 		oos = killer_mob->GetOwnerOrSelf();
-
-		char buffer[48] = { 0 };
-		snprintf(buffer, 47, "%d %d %d %d", killer_mob->GetID(), damage, spell, static_cast<int>(attack_skill));
-
-		if (parse->EventNPC(EVENT_DEATH, this, oos, buffer, 0) != 0) {
+		std::string buffer = fmt::format("{} {} {} {}", killer_mob->GetID(), damage, spell, static_cast<int>(attack_skill));
+		if (parse->EventNPC(EVENT_DEATH, this, oos, buffer.c_str(), 0) != 0) {
 			if (GetHP() < 0) {
 				SetHP(0);
 			}
@@ -2385,10 +2384,8 @@ bool NPC::Death(Mob* killer_mob, int32 damage, uint16 spell, EQ::skills::SkillTy
 		}
 	}
 	else {
-		char buffer[48] = { 0 };
-		snprintf(buffer, 47, "%d %d %d %d", 0, damage, spell, static_cast<int>(attack_skill));
-
-		if (parse->EventNPC(EVENT_DEATH, this, nullptr, buffer, 0) != 0) {
+		std::string buffer = fmt::format("{} {} {} {}", 0, damage, spell, static_cast<int>(attack_skill));
+		if (parse->EventNPC(EVENT_DEATH, this, nullptr, buffer.c_str(), 0) != 0) {
 			if (GetHP() < 0) {
 				SetHP(0);
 			}
@@ -2509,9 +2506,7 @@ bool NPC::Death(Mob* killer_mob, int32 damage, uint16 spell, EQ::skills::SkillTy
 				give_exp_client->GetCleanName(),
 				GetNPCTypeID()
 			);
-			give_exp_client
-				->GetTaskState()
-				->HandleUpdateTasksOnKill(give_exp_client, GetNPCTypeID());
+			task_manager->HandleUpdateTasksOnKill(give_exp_client, GetNPCTypeID());
 		}
 
 		if (kr) {
@@ -2781,16 +2776,15 @@ bool NPC::Death(Mob* killer_mob, int32 damage, uint16 spell, EQ::skills::SkillTy
 
 	entity_list.UpdateFindableNPCState(this, true);
 
-	char buffer[64] = { 0 };
-	snprintf(buffer, 63, "%d %d %d %d %s", killer_mob ? killer_mob->GetID() : 0, damage, spell, static_cast<int>(attack_skill), killer_mob ? killer_mob->GetName() : "");
-	parse->EventNPC(EVENT_DEATH_COMPLETE, this, oos, buffer, 0);
+	std::string buffer = fmt::format("{} {} {} {}", killer_mob ? killer_mob->GetID() : 0, damage, spell, static_cast<int>(attack_skill));
+	parse->EventNPC(EVENT_DEATH_COMPLETE, this, oos, buffer.c_str(), 0);
 
 	/* Zone controller process EVENT_DEATH_ZONE (Death events) */
 	if (RuleB(Zone, UseZoneController)) {
-		if (entity_list.GetNPCByNPCTypeID(ZONE_CONTROLLER_NPC_ID) && this->GetNPCTypeID() != ZONE_CONTROLLER_NPC_ID) {
-			char data_pass[100] = { 0 };
-			snprintf(data_pass, 99, "%d %d %d %d %d", killer_mob ? killer_mob->GetID() : 0, damage, spell, static_cast<int>(attack_skill), this->GetNPCTypeID());
-			parse->EventNPC(EVENT_DEATH_ZONE, entity_list.GetNPCByNPCTypeID(ZONE_CONTROLLER_NPC_ID)->CastToNPC(), nullptr, data_pass, 0);
+		auto controller = entity_list.GetNPCByNPCTypeID(ZONE_CONTROLLER_NPC_ID);
+		if (controller && GetNPCTypeID() != ZONE_CONTROLLER_NPC_ID) {
+			std::string data_pass = fmt::format("{} {} {} {} {}", killer_mob ? killer_mob->GetID() : 0, damage, spell, static_cast<int>(attack_skill), GetNPCTypeID());
+			parse->EventNPC(EVENT_DEATH_ZONE, controller, nullptr, data_pass.c_str(), 0);
 		}
 	}
 
@@ -3029,10 +3023,15 @@ void Mob::DamageShield(Mob* attacker, bool spell_ds) {
 			spellid = spellbonuses.DamageShieldSpellID;
 	}
 	else {
-		DS = spellbonuses.SpellDamageShield;
+		DS = spellbonuses.SpellDamageShield + itembonuses.SpellDamageShield + aabonuses.SpellDamageShield;
 		rev_ds = 0;
 		// This ID returns "you are burned", seemed most appropriate for spell DS
 		spellid = 2166;
+		/*
+			Live Message - not yet used on emu
+			Feedback onto you "YOUR mind burns from TARGETS NAME's feedback for %i points of non-melee damage."
+			Feedback onto other "TARGETS NAME's mind burns from YOUR feedback for %i points of non-melee damage."
+		*/
 	}
 
 	if (DS == 0 && rev_ds == 0)
@@ -3066,6 +3065,7 @@ void Mob::DamageShield(Mob* attacker, bool spell_ds) {
 
 			DS -= DS * ds_mitigation / 100;
 		}
+
 		attacker->Damage(this, -DS, spellid, EQ::skills::SkillAbjuration/*hackish*/, false);
 		//we can assume there is a spell now
 		auto outapp = new EQApplicationPacket(OP_Damage, sizeof(CombatDamage_Struct));

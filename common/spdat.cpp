@@ -832,6 +832,14 @@ bool IsTeleportSpell(uint16 spell_id)
 	return false;
 }
 
+bool IsTranslocateSpell(uint16 spell_id)
+{
+	if (IsEffectInSpell(spell_id, SE_Translocate))
+		return true;
+
+	return false;
+}
+
 bool IsGateSpell(uint16 spell_id)
 {
 	if (IsEffectInSpell(spell_id, SE_Gate))
@@ -1246,6 +1254,7 @@ bool IsEffectIgnoredInStacking(int spa)
 	case SE_Ff_ReuseTimeMax:
 	case SE_Ff_Value_Min:
 	case SE_Ff_Value_Max:
+	case SE_Ff_FocusTimerMin:
 		return true;
 	default:
 		return false;
@@ -1287,6 +1296,7 @@ bool IsFocusLimit(int spa)
 	case SE_Ff_ReuseTimeMax:
 	case SE_Ff_Value_Min:
 	case SE_Ff_Value_Max:
+	case SE_Ff_FocusTimerMin:
 		return true;
 	default:
 		return false;
@@ -1521,6 +1531,7 @@ int GetSpellStatValue(uint32 spell_id, const char* stat_identifier, uint8 slot)
 	else if (id == "descnum") { return spells[spell_id].descnum; }
 	else if (id == "effectdescnum") { return spells[spell_id].effectdescnum; }
 	else if (id == "npc_no_los") { return spells[spell_id].npc_no_los; }
+	else if (id == "feedbackable") { return spells[spell_id].feedbackable; }
 	else if (id == "reflectable") { return spells[spell_id].reflectable; }
 	else if (id == "bonushate") { return spells[spell_id].bonushate; }
 	else if (id == "endurcost") { return spells[spell_id].EndurCost; }
@@ -1563,6 +1574,29 @@ int GetSpellStatValue(uint32 spell_id, const char* stat_identifier, uint8 slot)
 	else if (id == "damageshieldtype") { return spells[spell_id].DamageShieldType; }
 
 	return 0;
+}
+
+bool IsVirusSpell(int32 spell_id) 
+{
+	if (GetViralMinSpreadTime(spell_id) && GetViralMaxSpreadTime(spell_id) && GetViralSpreadRange(spell_id)){
+		return true;
+	}
+	return false;
+}
+
+int32 GetViralMinSpreadTime(int32 spell_id) 
+{
+	return spells[spell_id].viral_targets;
+}
+
+int32 GetViralMaxSpreadTime(int32 spell_id) 
+{
+	return spells[spell_id].viral_timer;
+}
+
+int32 GetViralSpreadRange(int32 spell_id) 
+{
+	return spells[spell_id].viral_range;
 }
 
 bool IsRootSpell(int16 spell_id)

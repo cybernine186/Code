@@ -353,9 +353,9 @@ public:
 		entry.pvp_best_kill_streak    = 0;
 		entry.pvp_worst_death_streak  = 0;
 		entry.pvp_current_kill_streak = 0;
-		entry.pvp_current_death_streak = 0;	
-		entry.pvp_infamy	      = 0;	
-		entry.pvp_vitality	      = 0;
+		entry.pvp_current_death_streak= 0;	
+		entry.pvp_infamy	          = 0;	
+		entry.pvp_vitality	          = 0;
 		entry.pvp2                    = 0;
 		entry.pvp_type                = 0;
 		entry.show_helm               = 0;

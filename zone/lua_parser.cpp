@@ -53,7 +53,6 @@ const char *LuaEvents[_LargestEventID] = {
 	"event_combat",
 	"event_aggro",
 	"event_slay",
-	"event_pvp_slay",
 	"event_npc_slay",
 	"event_waypoint_arrive",
 	"event_waypoint_depart",
@@ -136,7 +135,8 @@ const char *LuaEvents[_LargestEventID] = {
 	"event_test_buff",
 	"event_combine",
 	"event_consider",
-	"event_consider_corpse"
+	"event_consider_corpse",
+	"event_loot_zone"
 };
 
 extern Zone *zone;
@@ -186,10 +186,10 @@ LuaParser::LuaParser() {
 	NPCArgumentDispatch[EVENT_FEIGN_DEATH] = handle_npc_single_client;
 	NPCArgumentDispatch[EVENT_ENTER_AREA] = handle_npc_area;
 	NPCArgumentDispatch[EVENT_LEAVE_AREA] = handle_npc_area;
+	NPCArgumentDispatch[EVENT_LOOT_ZONE] = handle_npc_loot_zone;
 
 	PlayerArgumentDispatch[EVENT_SAY] = handle_player_say;
 	PlayerArgumentDispatch[EVENT_ENVIRONMENTAL_DAMAGE] = handle_player_environmental_damage;
-	PlayerArgumentDispatch[EVENT_PVP_SLAY] = handle_pvp_slay;
 	PlayerArgumentDispatch[EVENT_DEATH] = handle_player_death;
 	PlayerArgumentDispatch[EVENT_DEATH_COMPLETE] = handle_player_death;
 	PlayerArgumentDispatch[EVENT_TIMER] = handle_player_timer;
@@ -241,9 +241,9 @@ LuaParser::LuaParser() {
 	ItemArgumentDispatch[EVENT_AUGMENT_INSERT] = handle_item_augment_insert;
 	ItemArgumentDispatch[EVENT_AUGMENT_REMOVE] = handle_item_augment_remove;
 
-	SpellArgumentDispatch[EVENT_SPELL_EFFECT_CLIENT] = handle_spell_effect;
-	SpellArgumentDispatch[EVENT_SPELL_BUFF_TIC_CLIENT] = handle_spell_tic;
-	SpellArgumentDispatch[EVENT_SPELL_FADE] = handle_spell_fade;
+	SpellArgumentDispatch[EVENT_SPELL_EFFECT_CLIENT] = handle_spell_event;
+	SpellArgumentDispatch[EVENT_SPELL_EFFECT_BUFF_TIC_CLIENT] = handle_spell_event;
+	SpellArgumentDispatch[EVENT_SPELL_FADE] = handle_spell_event;
 	SpellArgumentDispatch[EVENT_SPELL_EFFECT_TRANSLOCATE_COMPLETE] = handle_translocate_finish;
 
 	EncounterArgumentDispatch[EVENT_TIMER] = handle_encounter_timer;
@@ -535,7 +535,7 @@ int LuaParser::_EventItem(std::string package_name, QuestEventID evt, Client *cl
 	return 0;
 }
 
-int LuaParser::EventSpell(QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, uint32 extra_data,
+int LuaParser::EventSpell(QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, std::string data, uint32 extra_data,
 						  std::vector<EQ::Any> *extra_pointers) {
 	evt = ConvertLuaEvent(evt);
 	if(evt >= _LargestEventID) {
@@ -548,10 +548,10 @@ int LuaParser::EventSpell(QuestEventID evt, NPC* npc, Client *client, uint32 spe
 		return 0;
 	}
 
-	return _EventSpell(package_name, evt, npc, client, spell_id, extra_data, extra_pointers);
+	return _EventSpell(package_name, evt, npc, client, spell_id, data, extra_data, extra_pointers);
 }
 
-int LuaParser::_EventSpell(std::string package_name, QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, uint32 extra_data,
+int LuaParser::_EventSpell(std::string package_name, QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, std::string data, uint32 extra_data,
 						   std::vector<EQ::Any> *extra_pointers, luabind::adl::object *l_func) {
 	const char *sub_name = LuaEvents[evt];
 
@@ -582,7 +582,7 @@ int LuaParser::_EventSpell(std::string package_name, QuestEventID evt, NPC* npc,
 		lua_setfield(L, -2, "self");
 
 		auto arg_function = SpellArgumentDispatch[evt];
-		arg_function(this, L, npc, client, spell_id, extra_data, extra_pointers);
+		arg_function(this, L, npc, client, spell_id, data, extra_data, extra_pointers);
 
 		quest_manager.StartQuest(npc, client, nullptr);
 		if(lua_pcall(L, 1, 1, 0)) {
@@ -1276,7 +1276,7 @@ int LuaParser::DispatchEventItem(QuestEventID evt, Client *client, EQ::ItemInsta
     return ret;
 }
 
-int LuaParser::DispatchEventSpell(QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, uint32 extra_data,
+int LuaParser::DispatchEventSpell(QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, std::string data, uint32 extra_data,
 								   std::vector<EQ::Any> *extra_pointers) {
 	evt = ConvertLuaEvent(evt);
 	if(evt >= _LargestEventID) {
@@ -1292,7 +1292,7 @@ int LuaParser::DispatchEventSpell(QuestEventID evt, NPC* npc, Client *client, ui
 		while(riter != iter->second.end()) {
 			if(riter->event_id == evt) {
 				std::string package_name = "encounter_" + riter->encounter_name;
-				int i = _EventSpell(package_name, evt, npc, client, spell_id, extra_data, extra_pointers, &riter->lua_reference);
+				int i = _EventSpell(package_name, evt, npc, client, spell_id, data, extra_data, extra_pointers, &riter->lua_reference);
                 if(i != 0) {
                     ret = i;
                 }
@@ -1310,7 +1310,7 @@ int LuaParser::DispatchEventSpell(QuestEventID evt, NPC* npc, Client *client, ui
 	while(riter != iter->second.end()) {
 		if(riter->event_id == evt) {
 			std::string package_name = "encounter_" + riter->encounter_name;
-			int i = _EventSpell(package_name, evt, npc, client, spell_id, extra_data, extra_pointers, &riter->lua_reference);
+			int i = _EventSpell(package_name, evt, npc, client, spell_id, data, extra_data, extra_pointers, &riter->lua_reference);
             if(i != 0)
                 ret = i;
 		}
@@ -1329,9 +1329,9 @@ QuestEventID LuaParser::ConvertLuaEvent(QuestEventID evt) {
 	case EVENT_SPELL_EFFECT_NPC:
 		return EVENT_SPELL_EFFECT_CLIENT;
 		break;
-	case EVENT_SPELL_BUFF_TIC_CLIENT:
-	case EVENT_SPELL_BUFF_TIC_NPC:
-		return EVENT_SPELL_BUFF_TIC_CLIENT;
+	case EVENT_SPELL_EFFECT_BUFF_TIC_CLIENT:
+	case EVENT_SPELL_EFFECT_BUFF_TIC_NPC:
+		return EVENT_SPELL_EFFECT_BUFF_TIC_CLIENT;
 		break;
 	case EVENT_AGGRO:
 	case EVENT_ATTACK:
@@ -1411,21 +1411,6 @@ uint32 LuaParser::GetExperienceForKill(Client *self, Mob *against, bool &ignoreD
 	uint32 retval = 0;
 	for (auto &mod : mods_) {
 		mod.GetExperienceForKill(self, against, retval, ignoreDefault);
-	}
-	return retval;
-}
-
-void LuaParser::ClientDamage(Client *self, Mob *other, int32 &in_damage, uint16 &spell_id,  int &attack_skill, bool &avoidable, int8 &buffslot, bool &iBuffTic, int &special, int32 &out_damage, bool &ignoreDefault)
-{
-	for (auto &mod : mods_) {
-		mod.ClientDamage(self, other, in_damage, spell_id, attack_skill, avoidable, buffslot, iBuffTic, special, out_damage, ignoreDefault);
-	}
-}
-
-float LuaParser::PVPResistSpell(Client* self, uint8 &resist_type, uint16 &spell_id, Client* caster, bool &use_resist_override, int &resist_override, bool &CharismaCheck, bool &CharmTick, bool &IsRoot, int &level_override, bool &ignoreDefault) {
-	float retval = 0;
-	for (auto &mod : mods_) {
-		mod.PVPResistSpell(self, resist_type, spell_id, caster, use_resist_override, resist_override, CharismaCheck, CharmTick, IsRoot, level_override, retval, ignoreDefault);
 	}
 	return retval;
 }

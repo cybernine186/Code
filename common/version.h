@@ -34,7 +34,7 @@
  * Manifest: https://raw.githubusercontent.com/cybernine186/Code/master/utils/sql/db_update_manifest.txt
  */
 
-#define CURRENT_BINARY_DATABASE_VERSION 9178
+#define CURRENT_BINARY_DATABASE_VERSION 9180
 
 #ifdef BOTS
 	#define CURRENT_BINARY_BOTS_DATABASE_VERSION 9028

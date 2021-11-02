@@ -46,7 +46,7 @@ public:
 		std::vector<EQ::Any> *extra_pointers);
 	virtual int EventItem(QuestEventID evt, Client *client, EQ::ItemInstance *item, Mob *mob, std::string data, uint32 extra_data,
 		std::vector<EQ::Any> *extra_pointers);
-	virtual int EventSpell(QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, uint32 extra_data,
+	virtual int EventSpell(QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, std::string data, uint32 extra_data,
 		std::vector<EQ::Any> *extra_pointers);
 	virtual int EventEncounter(QuestEventID evt, std::string encounter_name, std::string data, uint32 extra_data,
 		std::vector<EQ::Any> *extra_pointers);
@@ -80,7 +80,7 @@ public:
 		std::vector<EQ::Any> *extra_pointers);
 	virtual int DispatchEventItem(QuestEventID evt, Client *client, EQ::ItemInstance *item, Mob *mob, std::string data, uint32 extra_data,
 		std::vector<EQ::Any> *extra_pointers);
-	virtual int DispatchEventSpell(QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, uint32 extra_data,
+	virtual int DispatchEventSpell(QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, std::string data, uint32 extra_data,
 		std::vector<EQ::Any> *extra_pointers);
 
 	static LuaParser* Instance() {
@@ -100,8 +100,6 @@ public:
 	uint32 GetRequiredAAExperience(Client *self, bool &ignoreDefault);
 	uint32 GetEXPForLevel(Client *self, uint16 level, bool &ignoreDefault);
 	uint32 GetExperienceForKill(Client *self, Mob *against, bool &ignoreDefault);
-	void ClientDamage(Client *self, Mob *other, int32 &in_damage, uint16 &spell_id,  int &attack_skill, bool &avoidable, int8 &buffslot, bool &iBuffTic, int &special, int32 &out_damage, bool &ignoreDefault);
-	float PVPResistSpell(Client* self, uint8 &resist_type, uint16 &spell_id, Client* caster, bool &use_resist_override, int &resist_override, bool &CharismaCheck, bool &CharmTick, bool &IsRoot, int &level_override, bool &ignoreDefault);
 
 private:
 	LuaParser();
@@ -114,7 +112,7 @@ private:
 		std::vector<EQ::Any> *extra_pointers, luabind::adl::object *l_func = nullptr);
 	int _EventItem(std::string package_name, QuestEventID evt, Client *client, EQ::ItemInstance *item, Mob *mob, std::string data,
 		uint32 extra_data, std::vector<EQ::Any> *extra_pointers, luabind::adl::object *l_func = nullptr);
-	int _EventSpell(std::string package_name, QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, uint32 extra_data,
+	int _EventSpell(std::string package_name, QuestEventID evt, NPC* npc, Client *client, uint32 spell_id, std::string data, uint32 extra_data,
 		std::vector<EQ::Any> *extra_pointers, luabind::adl::object *l_func = nullptr);
 	int _EventEncounter(std::string package_name, QuestEventID evt, std::string encounter_name, std::string data, uint32 extra_data,
 		std::vector<EQ::Any> *extra_pointers);
