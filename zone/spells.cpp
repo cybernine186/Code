@@ -229,6 +229,13 @@ bool Mob::CastSpell(uint16 spell_id, uint16 target_id, CastingSlot slot,
 		return false;
 	}
 
+	// Dispels and Manaburn require LOS
+	if (!zone->CanCastOutdoor() && (IsEffectInSpell(spell_id, SE_CancelMagic) || IsEffectInSpell(spell_id, SE_DispelBeneficial)) && !CheckLosFN(GetTarget()))
+	{
+		InterruptSpell(CANT_SEE_TARGET, 0x121, spell_id);
+		return(false);
+	}
+	
 	if (HasActiveSong() && IsBardSong(spell_id)) {
 		LogSpells("Mob::CastSpell(): Casting a new song while singing a song. Killing old song [{}]", bardsong);
 		//Note: this does NOT tell the client
@@ -3588,7 +3595,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, int reflect_effectivenes
 	if(spelltar->IsClient() && spelltar->CastToClient()->IsHoveringForRespawn())
 		return false;
 
-	if(IsDetrimentalSpell(spell_id) && !IsAttackAllowed(spelltar, true) && !IsResurrectionEffects(spell_id)) {
+	if(IsDetrimentalSpell(spell_id) && !IsAttackAllowed(spelltar, true) && !IsResurrectionEffects(spell_id) && !(IsEffectInSpell(spell_id, SE_CancelMagic) && IsAttackAllowed(spelltar->GetUltimateOwner(), true))) {
 		if(!IsClient() || !CastToClient()->GetGM()) {
 			MessageString(Chat::SpellFailure, SPELL_NO_HOLD);
 			return false;
@@ -3647,11 +3654,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, int reflect_effectivenes
 	}
 
 	// select target
-	if	// Bind Sight line of spells
-	(
-		spell_id == 500 ||	// bind sight
-		spell_id == 407		// cast sight
-	)
+	if (IsEffectInSpell(spell_id, SE_BindSight))
 	{
 		action->target = GetID();
 	}
@@ -3859,7 +3862,7 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, int reflect_effectivenes
 				}
 			}
 		}
-		else if	( !IsAttackAllowed(spelltar, true) && !IsResurrectionEffects(spell_id)) // Detrimental spells - PVP check
+		else if	( !IsAttackAllowed(spelltar, true) && !IsResurrectionEffects(spell_id) && !IsEffectInSpell(spell_id, SE_CancelMagic) && !IsEffectInSpell(spell_id, SE_BindSight)) // Detrimental spells - PVP check
 		{
 			LogSpells("Mob::SpellOnTarget(): Detrimental spell [{}], can't take hold [{}], -> [{}]", spell_id, GetName(), spelltar->GetName());
 			spelltar->MessageString(Chat::SpellFailure, YOU_ARE_PROTECTED, GetCleanName());

@@ -223,7 +223,8 @@ bool IsBeneficialSpell(uint16 spell_id)
 		// If the target type is ST_Self or ST_Pet and is a SE_CancleMagic spell
 		// it is not Beneficial
 		SpellTargetType tt = spells[spell_id].targettype;
-		if (IsEffectInSpell(spell_id, SE_CancelMagic))
+		if (tt != ST_Self && tt != ST_Pet &&
+				IsEffectInSpell(spell_id, SE_CancelMagic))
 			return true;
 
 		// When our targettype is ST_Target, ST_AETarget, ST_Aniaml, ST_Undead, or ST_Pet
