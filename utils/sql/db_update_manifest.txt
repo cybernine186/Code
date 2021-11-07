@@ -435,6 +435,7 @@
 9178|2021_11_01_pvp_spells.sql
 9179|2021_09_14_zone_lava_damage.sql
 9180|2021_10_09_not_null_door_columns.sql
+9181|2021_11_07_character_corpse_and_pvp.sql|SHOW COLUMNS FROM `character_corpse_items` LIKE 'charid'|empty|
 
 
 # Upgrade conditions:

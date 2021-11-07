@@ -4440,9 +4440,10 @@ uint32 ZoneDatabase::SaveCharacterCorpse(uint32 charid, const char* charname, ui
 	for (unsigned int i = 0; i < dbpc->itemcount; i++) {
 		if (first_entry != 1){
 			corpse_items_query = StringFormat("REPLACE INTO `character_corpse_items` \n"
-				" (corpse_id, equip_slot, item_id, charges, aug_1, aug_2, aug_3, aug_4, aug_5, aug_6, attuned) \n"
-				" VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u) \n",
+				" (corpse_id, charid, equip_slot, item_id, charges, aug_1, aug_2, aug_3, aug_4, aug_5, aug_6, attuned) \n"
+				" VALUES (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u) \n",
 				last_insert_id,
+				charid,
 				dbpc->items[i].equip_slot,
 				dbpc->items[i].item_id,
 				dbpc->items[i].charges,
@@ -4457,8 +4458,9 @@ uint32 ZoneDatabase::SaveCharacterCorpse(uint32 charid, const char* charname, ui
 			first_entry = 1;
 		}
 		else{
-			corpse_items_query = corpse_items_query + StringFormat(", (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u) \n",
+			corpse_items_query = corpse_items_query + StringFormat(", (%u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u, %u) \n",
 				last_insert_id,
+				charid,
 				dbpc->items[i].equip_slot,
 				dbpc->items[i].item_id,
 				dbpc->items[i].charges,
@@ -4915,9 +4917,9 @@ uint32 ZoneDatabase::SaveSaylinkID(const char* saylink_text)
 }
 void ZoneDatabase::GetPVPKillsLast24Hours(Client* killer, PVPStats_Struct* pvps)
 {
-	int count = 1;
+	int count = 0;
 
-	std::string query = StringFormat("SELECT `cd`.`name`, `cpe`.`victim_level`, `cd`.`race`, `cd`.`class`, `cpe`.`zone`, `cpe`.`timestamp`, `cpe`.`points` FROM `character_pvp_entries` `cpe` INNER JOIN `character_data` `cd` ON `cd`.`id` = `cpe`.`victim_id` WHERE `cpe`.`killer_id` = %i AND `cpe`.`timestamp` <= TIMESTAMPADD(DAY, 1, NOW()) ORDER BY `cpe`.`timestamp` ASC LIMIT 50", killer->CharacterID());
+	std::string query = StringFormat("SELECT `victim_name`, `victim_level`, `victim_race`, `victim_class`, `zone`, `timestamp`, `points` FROM `character_pvp_entries` WHERE `killer_id` = %i AND `timestamp` <= TIMESTAMPADD(DAY, 1, NOW()) ORDER BY `timestamp` DESC LIMIT 50", killer->CharacterID());
 
 	auto results = QueryDatabase(query);
 
@@ -5025,7 +5027,8 @@ void ZoneDatabase::GetPVPLeaderBoard(Client* client, PVPLeaderBoard_Struct* pvpl
 }
 bool ZoneDatabase::RegisterPVPKill(Client* killer, Client* victim, uint32 points)
 {
-	std::string query = StringFormat("INSERT INTO `character_pvp_entries` (`victim_id`, `victim_level`, `killer_id`, `killer_level`, `zone`, `points`, `timestamp`) VALUES (%i,%i,%i,%i,%i,%i,UNIX_TIMESTAMP())", victim->CharacterID(), victim->GetLevel(), killer->CharacterID(), killer->GetLevel(), zone->GetZoneID(), points);
+	std::string query = StringFormat("INSERT INTO `character_pvp_entries` (`killer_id`, `killer_name`, `killer_level`, `victim_id`, `victim_name`, `victim_level`, `victim_race`, `victim_class`, `zone`, `points`, `timestamp`) VALUES (%i,'%s',%i,%i,'%s',%i,%i,%i,%i,%i,UNIX_TIMESTAMP())", 
+		killer->CharacterID(), killer->GetName(), killer->GetLevel(), victim->CharacterID(), victim->GetName(), victim->GetLevel(), victim->GetRace(), victim->GetClass(), zone->GetZoneID(), points);
 
 	auto results = QueryDatabase(query);
 
@@ -5037,7 +5040,7 @@ bool ZoneDatabase::RegisterPVPKill(Client* killer, Client* victim, uint32 points
 }
 void ZoneDatabase::GetLastPVPKill(Client* killer, PVPStats_Struct* pvps)
 {
-	std::string query = StringFormat("SELECT `cd`.`name`, `cpe`.`victim_level`, `cd`.`race`, `cd`.`class`, `cpe`.`zone`, `cpe`.`timestamp`, `cpe`.`points` FROM `character_pvp_entries` `cpe` INNER JOIN `character_data` `cd` ON `cpe`.`victim_id` = `cd`.`id` WHERE `cpe`.`killer_id` = %i ORDER BY `cpe`.`timestamp` DESC LIMIT 1", killer->CharacterID());
+	std::string query = StringFormat("SELECT `victim_name`, `victim_level`, `victim_race`, `victim_class`, `zone`, `timestamp`, `points` FROM `character_pvp_entries` WHERE `killer_id` = %i ORDER BY `timestamp` DESC LIMIT 1", killer->CharacterID());
 
 	auto results = QueryDatabase(query);
 
@@ -5063,7 +5066,7 @@ void ZoneDatabase::GetLastPVPKill(Client* killer, PVPStats_Struct* pvps)
 }
 void ZoneDatabase::GetLastPVPDeath(Client* victim, PVPStats_Struct* pvps)
 {
-	std::string query = StringFormat("SELECT `cd`.`name`, `cpe`.`victim_level`, `cd`.`race`, `cd`.`class`, `cpe`.`zone`, `cpe`.`timestamp`, `cpe`.`points` FROM `character_pvp_entries` `cpe` INNER JOIN `character_data` `cd` ON `cpe`.`killer_id` = `cd`.`id` WHERE `cpe`.`victim_id` = %i ORDER BY `cpe`.`timestamp` DESC LIMIT 1", victim->CharacterID());
+	std::string query = StringFormat("SELECT `victim_name`, `victim_level`, `victim_race`, `victim_class`, `zone`, `timestamp`, `points` FROM `character_pvp_entries` WHERE `victim_id` = %i ORDER BY `timestamp` DESC LIMIT 1", victim->CharacterID());
 
 	auto results = QueryDatabase(query);
 

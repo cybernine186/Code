@@ -19,6 +19,7 @@ class BaseCharacterCorpseItemsRepository {
 public:
 	struct CharacterCorpseItems {
 		int corpse_id;
+		int charid;
 		int equip_slot;
 		int item_id;
 		int charges;
@@ -40,6 +41,7 @@ public:
 	{
 		return {
 			"corpse_id",
+			"charid",
 			"equip_slot",
 			"item_id",
 			"charges",
@@ -86,6 +88,7 @@ public:
 		CharacterCorpseItems entry{};
 
 		entry.corpse_id  = 0;
+		entry.charid = 0;
 		entry.equip_slot = 0;
 		entry.item_id    = 0;
 		entry.charges    = 0;
@@ -132,16 +135,17 @@ public:
 			CharacterCorpseItems entry{};
 
 			entry.corpse_id  = atoi(row[0]);
-			entry.equip_slot = atoi(row[1]);
-			entry.item_id    = atoi(row[2]);
-			entry.charges    = atoi(row[3]);
-			entry.aug_1      = atoi(row[4]);
-			entry.aug_2      = atoi(row[5]);
-			entry.aug_3      = atoi(row[6]);
-			entry.aug_4      = atoi(row[7]);
-			entry.aug_5      = atoi(row[8]);
-			entry.aug_6      = atoi(row[9]);
-			entry.attuned    = atoi(row[10]);
+			entry.charid     = atoi(row[1]);
+			entry.equip_slot = atoi(row[2]);
+			entry.item_id    = atoi(row[3]);
+			entry.charges    = atoi(row[4]);
+			entry.aug_1      = atoi(row[5]);
+			entry.aug_2      = atoi(row[6]);
+			entry.aug_3      = atoi(row[7]);
+			entry.aug_4      = atoi(row[8]);
+			entry.aug_5      = atoi(row[9]);
+			entry.aug_6      = atoi(row[10]);
+			entry.attuned    = atoi(row[11]);
 
 			return entry;
 		}
@@ -176,16 +180,17 @@ public:
 		auto columns = Columns();
 
 		update_values.push_back(columns[0] + " = " + std::to_string(character_corpse_items_entry.corpse_id));
-		update_values.push_back(columns[1] + " = " + std::to_string(character_corpse_items_entry.equip_slot));
-		update_values.push_back(columns[2] + " = " + std::to_string(character_corpse_items_entry.item_id));
-		update_values.push_back(columns[3] + " = " + std::to_string(character_corpse_items_entry.charges));
-		update_values.push_back(columns[4] + " = " + std::to_string(character_corpse_items_entry.aug_1));
-		update_values.push_back(columns[5] + " = " + std::to_string(character_corpse_items_entry.aug_2));
-		update_values.push_back(columns[6] + " = " + std::to_string(character_corpse_items_entry.aug_3));
-		update_values.push_back(columns[7] + " = " + std::to_string(character_corpse_items_entry.aug_4));
-		update_values.push_back(columns[8] + " = " + std::to_string(character_corpse_items_entry.aug_5));
-		update_values.push_back(columns[9] + " = " + std::to_string(character_corpse_items_entry.aug_6));
-		update_values.push_back(columns[10] + " = " + std::to_string(character_corpse_items_entry.attuned));
+		update_values.push_back(columns[1] + " = " + std::to_string(character_corpse_items_entry.charid));
+		update_values.push_back(columns[2] + " = " + std::to_string(character_corpse_items_entry.equip_slot));
+		update_values.push_back(columns[3] + " = " + std::to_string(character_corpse_items_entry.item_id));
+		update_values.push_back(columns[4] + " = " + std::to_string(character_corpse_items_entry.charges));
+		update_values.push_back(columns[5] + " = " + std::to_string(character_corpse_items_entry.aug_1));
+		update_values.push_back(columns[6] + " = " + std::to_string(character_corpse_items_entry.aug_2));
+		update_values.push_back(columns[7] + " = " + std::to_string(character_corpse_items_entry.aug_3));
+		update_values.push_back(columns[8] + " = " + std::to_string(character_corpse_items_entry.aug_4));
+		update_values.push_back(columns[9] + " = " + std::to_string(character_corpse_items_entry.aug_5));
+		update_values.push_back(columns[10] + " = " + std::to_string(character_corpse_items_entry.aug_6));
+		update_values.push_back(columns[11] + " = " + std::to_string(character_corpse_items_entry.attuned));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -208,6 +213,7 @@ public:
 		std::vector<std::string> insert_values;
 
 		insert_values.push_back(std::to_string(character_corpse_items_entry.corpse_id));
+		insert_values.push_back(std::to_string(character_corpse_items_entry.charid));
 		insert_values.push_back(std::to_string(character_corpse_items_entry.equip_slot));
 		insert_values.push_back(std::to_string(character_corpse_items_entry.item_id));
 		insert_values.push_back(std::to_string(character_corpse_items_entry.charges));
@@ -248,6 +254,7 @@ public:
 			std::vector<std::string> insert_values;
 
 			insert_values.push_back(std::to_string(character_corpse_items_entry.corpse_id));
+			insert_values.push_back(std::to_string(character_corpse_items_entry.charid));
 			insert_values.push_back(std::to_string(character_corpse_items_entry.equip_slot));
 			insert_values.push_back(std::to_string(character_corpse_items_entry.item_id));
 			insert_values.push_back(std::to_string(character_corpse_items_entry.charges));
@@ -292,16 +299,17 @@ public:
 			CharacterCorpseItems entry{};
 
 			entry.corpse_id  = atoi(row[0]);
-			entry.equip_slot = atoi(row[1]);
-			entry.item_id    = atoi(row[2]);
-			entry.charges    = atoi(row[3]);
-			entry.aug_1      = atoi(row[4]);
-			entry.aug_2      = atoi(row[5]);
-			entry.aug_3      = atoi(row[6]);
-			entry.aug_4      = atoi(row[7]);
-			entry.aug_5      = atoi(row[8]);
-			entry.aug_6      = atoi(row[9]);
-			entry.attuned    = atoi(row[10]);
+			entry.charid     = atoi(row[1]);
+			entry.equip_slot = atoi(row[2]);
+			entry.item_id    = atoi(row[3]);
+			entry.charges    = atoi(row[4]);
+			entry.aug_1      = atoi(row[5]);
+			entry.aug_2      = atoi(row[6]);
+			entry.aug_3      = atoi(row[7]);
+			entry.aug_4      = atoi(row[8]);
+			entry.aug_5      = atoi(row[9]);
+			entry.aug_6      = atoi(row[10]);
+			entry.attuned    = atoi(row[11]);
 
 			all_entries.push_back(entry);
 		}
@@ -327,16 +335,17 @@ public:
 			CharacterCorpseItems entry{};
 
 			entry.corpse_id  = atoi(row[0]);
-			entry.equip_slot = atoi(row[1]);
-			entry.item_id    = atoi(row[2]);
-			entry.charges    = atoi(row[3]);
-			entry.aug_1      = atoi(row[4]);
-			entry.aug_2      = atoi(row[5]);
-			entry.aug_3      = atoi(row[6]);
-			entry.aug_4      = atoi(row[7]);
-			entry.aug_5      = atoi(row[8]);
-			entry.aug_6      = atoi(row[9]);
-			entry.attuned    = atoi(row[10]);
+			entry.charid     = atoi(row[1]);
+			entry.equip_slot = atoi(row[2]);
+			entry.item_id    = atoi(row[3]);
+			entry.charges    = atoi(row[4]);
+			entry.aug_1      = atoi(row[5]);
+			entry.aug_2      = atoi(row[6]);
+			entry.aug_3      = atoi(row[7]);
+			entry.aug_4      = atoi(row[8]);
+			entry.aug_5      = atoi(row[9]);
+			entry.aug_6      = atoi(row[10]);
+			entry.attuned    = atoi(row[11]);
 
 			all_entries.push_back(entry);
 		}
