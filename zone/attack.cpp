@@ -1833,9 +1833,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			}
 
 			this->HandlePVPDeath();
-
-			parse->EventPlayer(EVENT_PVP_SLAY, killerMob->CastToClient(), victim->GetName(), victim->CharacterID(), &args);
-
+			
 			mod_client_death_pvp(killerMob);
 		}
 	}
