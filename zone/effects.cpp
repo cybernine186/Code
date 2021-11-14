@@ -212,7 +212,7 @@ int32 Mob::GetActDoTDamage(uint16 spell_id, int32 value, Mob* target) {
 	if (spells[spell_id].override_crit_chance > 0 && chance > spells[spell_id].override_crit_chance)
 		chance = spells[spell_id].override_crit_chance;
 
-	if (chance > 0 && (zone->random.Roll(chance))) {
+	if (!spells[spell_id].goodEffect && chance > 0 && (zone->random.Roll(chance))) {
 		int32 ratio = 200;
 		ratio += itembonuses.DotCritDmgIncrease + spellbonuses.DotCritDmgIncrease + aabonuses.DotCritDmgIncrease;
 		value = base_value*ratio/100;
@@ -228,7 +228,7 @@ int32 Mob::GetActDoTDamage(uint16 spell_id, int32 value, Mob* target) {
 					GetFocusEffect(focusFcAmplifyAmt, spell_id);
 
 		if (extra_dmg) {
-			int duration = CalcBuffDuration(this, this, spell_id);
+			int duration = CalcBuffDuration(this, target, spell_id);
 			if (duration > 0)
 				extra_dmg /= duration;
 		}
@@ -250,7 +250,7 @@ int32 Mob::GetActDoTDamage(uint16 spell_id, int32 value, Mob* target) {
 					GetFocusEffect(focusFcAmplifyAmt, spell_id);
 
 		if (extra_dmg) {
-			int duration = CalcBuffDuration(this, this, spell_id);
+			int duration = CalcBuffDuration(this, target, spell_id);
 			if (duration > 0)
 				extra_dmg /= duration;
 		}

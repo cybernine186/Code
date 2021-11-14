@@ -1613,7 +1613,7 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 	//Don't do PvP mitigation if the caster is damaging himself
 	//should this be applied to all damage? comments sound like some is for spell DMG
 	//patch notes on PVP reductions only mention archery/throwing ... not normal dmg
-	if (other && other->IsClient() && (other != this) && damage > 0)
+	if (((other && other->IsClient() && (other != this)) || (iBuffTic && buffslot >= 0)) && damage > 0)
 	{
 		int PvPMitigation = RuleI(World, PVPMeleeMitigation);
  		if (attack_skill == EQ::skills::SkillAbjuration ||  //spells
@@ -1625,12 +1625,6 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
  			attack_skill == EQ::skills::SkillThrowing) PvPMitigation = RuleI(World, PVPRangedMitigation);
 
 		damage = std::max((damage * PvPMitigation) / 100, 1);
-		
-		// Update the client buff last_effect with the mitigated damage
-		// We are not treating spell DoTs as client casted after zoning
-		// This allows DoTs to have the safe effect as client casted and bypass some functions
-		if(iBuffTic && buffslot >= 0)
-			buffs[buffslot].last_effect = damage;
 	}
 
 	if (!ClientFinishedLoading())

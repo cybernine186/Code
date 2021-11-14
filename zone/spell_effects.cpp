@@ -3856,6 +3856,7 @@ void Mob::DoBuffTic(const Buffs_Struct &buff, int slot, Mob *caster)
 					effect_value = caster->GetActDoTDamage(buff.spellid, effect_value, this);
 					caster->ResourceTap(-effect_value, buff.spellid);	
 					effect_value = -effect_value;
+					buffs[slot].last_effect = effect_value;
 				}
 				else if (buff.client) {
 					// This value will be the mitigated damage because we are not
