@@ -57,6 +57,9 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 
 	if(!IsValidSpell(spell_id))
 		return false;
+	
+	LogSpells("Mob::SpellEffect(): caster [{}], spell_id [{}], partial [{}], level_override [{}], reflect_effectiveness [{}], duration_override [{}], pvp [{}]",
+		caster?caster->GetCleanName():"NOBODY", spell_id, partial, level_override, reflect_effectiveness, duration_override, pvp);
 
 	const SPDat_Spell_Struct &spell = spells[spell_id];
 
@@ -119,7 +122,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 			}
 			else
 			{
-				buffslot = AddBuff(caster, spell_id, 0, -1, pvp);
+				buffslot = AddBuff(caster, spell_id, duration_override, -1, pvp);
 			}
 			if(buffslot == -1)	// stacking failure
 				return false;
@@ -3765,6 +3768,7 @@ void Mob::BuffProcess()
 			{
 				if(buffs[buffs_i].UpdateClient == true)
 				{
+					LogSpells("Mob::BuffProcess(): UpdateClient [{}]", buffs[buffs_i].UpdateClient);
 					CastToClient()->SendBuffDurationPacket(buffs[buffs_i], buffs_i);
 					// Hack to get UF to play nicer, RoF seems fine without it
 					if (CastToClient()->ClientVersion() == EQ::versions::ClientVersion::UF && buffs[buffs_i].numhits > 0)
@@ -3793,6 +3797,18 @@ void Mob::DoBuffTic(const Buffs_Struct &buff, int slot, Mob *caster)
 		slot
 	);
 
+	LogSpells("Mob::DoBuffTic(): caster [{}], ticsremaining [{}], level [{}], slot [{}], ", caster ? caster->GetID() : 0, buffs[slot].ticsremaining, caster ? caster->GetLevel() : 0, slot);
+	LogSpells("Mob::DoBuffTic(): Buff Slot: [{}]", slot);
+	LogSpells("Mob::DoBuffTic(): casterid [{}]", buffs[slot].casterid);
+	LogSpells("Mob::DoBuffTic(): caster_charid [{}]", buffs[slot].caster_charid);
+	LogSpells("Mob::DoBuffTic(): caster_name [{}]", buffs[slot].caster_name);
+	LogSpells("Mob::DoBuffTic(): casterlevel [{}]", buffs[slot].casterlevel);
+	LogSpells("Mob::DoBuffTic(): client [{}]", buffs[slot].client);
+	LogSpells("Mob::DoBuffTic(): pvp [{}]", buffs[slot].pvp);
+	LogSpells("Mob::DoBuffTic(): spellid [{}]", buffs[slot].spellid);
+	LogSpells("Mob::DoBuffTic(): UpdateClient [{}]", buffs[slot].UpdateClient);
+	LogSpells("Mob::DoBuffTic(): ticsremaining [{}]", buffs[slot].ticsremaining);
+
 	if (IsClient()) {
 		if (parse->EventSpell(EVENT_SPELL_EFFECT_BUFF_TIC_CLIENT, nullptr, CastToClient(), buff.spellid, buf, 0) != 0) {
 			return;
@@ -3811,11 +3827,6 @@ void Mob::DoBuffTic(const Buffs_Struct &buff, int slot, Mob *caster)
 		// I copied the calculation into each case which needed it instead of
 		// doing it every time up here, since most buff effects dont need it
 
-		// PVP
-		bool pvp = false;
-		if (IsDetrimentalSpell(buff.spellid) && buff.client && IsClient())
-			pvp = true;
-
 		switch (effect) {
 		case SE_CurrentHP: {
 
@@ -3823,32 +3834,48 @@ void Mob::DoBuffTic(const Buffs_Struct &buff, int slot, Mob *caster)
 				break;
 			}
 
-			effect_value = CalcSpellEffectValue(buff.spellid, i, buff.casterlevel, buff.instrument_mod, caster, buff.ticsremaining, 0, pvp);
-			// Handle client cast DOTs here.
-			if (caster && effect_value < 0) {
+			effect_value = CalcSpellEffectValue(buff.spellid, i, buff.casterlevel, buff.instrument_mod, caster, buff.ticsremaining, 0, buff.pvp);
+			LogSpells("Mob::DoBuffTic(): SE_CurrentHP: CalcSpellEffectValue(): effect_value [{}]", effect_value);
 
-				if (IsDetrimentalSpell(buff.spellid)) {
-					if (caster->IsClient()) {
-						if (!caster->CastToClient()->GetFeigned())
+			// Handle client cast DOTs here.
+			if (effect_value < 0) {
+
+				// Effects are only calculated if the caster is available
+				if (caster)
+				{
+					if (IsDetrimentalSpell(buff.spellid)) {
+						if (caster->IsClient()) {
+							if (!caster->CastToClient()->GetFeigned())
+								AddToHateList(caster, -effect_value);
+						}
+						else if (!IsClient()) // Allow NPC's to generate hate if casted on other
+						 // NPC's.
 							AddToHateList(caster, -effect_value);
-					} else if (!IsClient()) // Allow NPC's to generate hate if casted on other
-						// NPC's.
-						AddToHateList(caster, -effect_value);
+					}
+
+					effect_value = caster->GetActDoTDamage(buff.spellid, effect_value, this);
+					caster->ResourceTap(-effect_value, buff.spellid);	
+					effect_value = -effect_value;
+				}
+				else if (buff.client) {
+					// This value will be the mitigated damage because we are not
+					// treating DoT spells as client casted after zoning
+					// This is a cheap hack but its effective
+					effect_value = buff.last_effect;
 				}
 
-				effect_value = caster->GetActDoTDamage(buff.spellid, effect_value, this);
-
-				caster->ResourceTap(-effect_value, buff.spellid);
-				effect_value = -effect_value;
+				
+				LogSpells("Mob::DoBuffTic(): SE_CurrentHP: effect_value [{}], last_effect [{}]", effect_value, buff.last_effect);
 				Damage(caster, effect_value, buff.spellid, spell.skill, false, i, true);
-			} else if (effect_value > 0) {
+			} 
+			else if (effect_value > 0) {
 				// Regen spell...
 				// handled with bonuses
 			}
 			break;
 		}
 		case SE_HealOverTime: {
-			effect_value = CalcSpellEffectValue(buff.spellid, i, buff.casterlevel, buff.instrument_mod, nullptr, 0, 0, pvp);
+			effect_value = CalcSpellEffectValue(buff.spellid, i, buff.casterlevel, buff.instrument_mod, nullptr, 0, 0, buff.pvp);
 			if (caster)
 				effect_value = caster->GetActSpellHealing(buff.spellid, effect_value);
 
@@ -3863,7 +3890,7 @@ void Mob::DoBuffTic(const Buffs_Struct &buff, int slot, Mob *caster)
 		}
 
 		case SE_BardAEDot: {
-			effect_value = CalcSpellEffectValue(buff.spellid, i, buff.casterlevel, buff.instrument_mod, caster, 0, 0, pvp);
+			effect_value = CalcSpellEffectValue(buff.spellid, i, buff.casterlevel, buff.instrument_mod, caster, 0, 0, buff.pvp);
 
 			if ((!RuleB(Spells, PreNerfBardAEDoT) && IsMoving()) || invulnerable ||
 			    /*effect_value > 0 ||*/ DivineAura())
@@ -3887,7 +3914,7 @@ void Mob::DoBuffTic(const Buffs_Struct &buff, int slot, Mob *caster)
 		}
 
 		case SE_Hate: {
-			effect_value = CalcSpellEffectValue(buff.spellid, i, buff.casterlevel, buff.instrument_mod, nullptr, 0, 0, pvp);
+			effect_value = CalcSpellEffectValue(buff.spellid, i, buff.casterlevel, buff.instrument_mod, nullptr, 0, 0, buff.pvp);
 			if (caster) {
 				if (effect_value > 0) {
 					if (caster) {
@@ -4013,7 +4040,7 @@ void Mob::DoBuffTic(const Buffs_Struct &buff, int slot, Mob *caster)
 		case SE_CastOnFadeEffectNPC:
 		case SE_CastOnFadeEffectAlways: {
 			if (buff.ticsremaining == 0) {
-				if(pvp)
+				if(buff.pvp)
 					SpellFinished(spells[buff.spellid].base[i], this, EQ::spells::CastingSlot::Item, 0, -1, spells[spells[buff.spellid].base[i]].pvp_resist_mod);
 				else
 					SpellFinished(spells[buff.spellid].base[i], this, EQ::spells::CastingSlot::Item, 0, -1, spells[spells[buff.spellid].base[i]].resist_mod);

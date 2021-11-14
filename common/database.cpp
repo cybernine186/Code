@@ -869,7 +869,7 @@ void Database::GetAccountName(uint32 accountid, char* name, uint32* oLSAccountID
 }
 
 void Database::GetCharName(uint32 char_id, char* name) {
-	std::string query = StringFormat("SELECT `name` FROM `character_data` WHERE id='%i'", char_id);
+	std::string query = StringFormat("SELECT `name` FROM `character_data` WHERE `id` ='%i'", char_id);
 	auto results = QueryDatabase(query);
 
 	if (!results.Success()) {
@@ -883,7 +883,25 @@ void Database::GetCharName(uint32 char_id, char* name) {
 }
 
 std::string Database::GetCharNameByID(uint32 char_id) {
-	std::string query = fmt::format("SELECT `name` FROM `character_data` WHERE id = {}", char_id);
+	std::string query = fmt::format("SELECT `name` FROM `character_data` WHERE `id` = {}", char_id);
+	auto results = QueryDatabase(query);
+	std::string res;
+
+	if (!results.Success()) {
+		return res;
+	}
+
+	if (results.RowCount() == 0) {
+		return res;
+	}
+
+	auto row = results.begin();
+	res = row[0];
+	return res;
+}
+
+std::string Database::GetCharClassByID(uint32 char_id) {
+	std::string query = fmt::format("SELECT `class` FROM `character_data` WHERE `id` = {}", char_id);
 	auto results = QueryDatabase(query);
 	std::string res;
 

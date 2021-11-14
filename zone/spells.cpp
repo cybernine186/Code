@@ -2970,6 +2970,7 @@ int Mob::CheckStackConflict(uint16 spellid1, int caster_level1, uint16 spellid2,
 	int overwrite_effect, overwrite_below_value, overwrite_slot;
 
 	LogSpells("Mob::CheckStackConflict(): Check Stacking on old [{}], ([{}]) @ lvl [{}], (by [{}]) vs. new [{}], ([{}]) @ lvl [{}], (by [{}])", sp1.name, spellid1, caster_level1, (caster1==nullptr)?"Nobody":caster1->GetName(), sp2.name, spellid2, caster_level2, (caster2==nullptr)?"Nobody":caster2->GetName());
+	LogSpells("Mob::CheckStackConflict(): pvp1 [{}], pvp2 [{}])", pvp1, pvp2);
 
 	if (spellbonuses.CompleteHealBuffBlocker && IsEffectInSpell(spellid2, SE_CompleteHeal)) {
 		Message(0, "You must wait before you can be affected by this spell again.");
@@ -3325,7 +3326,7 @@ bool Mob::HasDiscBuff()
 int Mob::AddBuff(Mob *caster, uint16 spell_id, int duration, int32 level_override, bool pvp)
 {
 	
-	LogSpells("Mob::AddBuff(): caster [{}], spell_id[{}], duration[{}], level_override[{}], pvp [{}]", caster->GetName(), spell_id, duration, level_override, pvp);
+	LogSpells("Mob::AddBuff(): caster [{}], spell_id [{}], duration [{}], level_override [{}], pvp [{}]", caster->GetName(), spell_id, duration, level_override, pvp);
 
 	int buffslot, ret, caster_level, emptyslot = -1;
 	bool will_overwrite = false;
@@ -3364,14 +3365,8 @@ int Mob::AddBuff(Mob *caster, uint16 spell_id, int duration, int32 level_overrid
 		const Buffs_Struct &curbuf = buffs[buffslot];
 
 		if (curbuf.spellid != SPELL_UNKNOWN) {
-
-			// PVP Check
-			bool curbufpvp = false;
-			if (curbuf.client && IsDetrimentalSpell(curbuf.spellid) && IsClient())
-				curbufpvp = true;
-
 			// there's a buff in this slot
-			ret = CheckStackConflict(curbuf.spellid, curbuf.casterlevel, spell_id, caster_level, entity_list.GetMobID(curbuf.casterid), caster, buffslot, curbufpvp, pvp);
+			ret = CheckStackConflict(curbuf.spellid, curbuf.casterlevel, spell_id, caster_level, entity_list.GetMobID(curbuf.casterid), caster, buffslot, curbuf.pvp, pvp);
 			if (ret == -1) {	// stop the spell
 				LogSpells("Mob::AddBuff(): Adding buff [{}], failed: stacking prevented by spell [{}], in slot [{}], with caster level [{}]",
 						spell_id, curbuf.spellid, buffslot, curbuf.casterlevel);
@@ -3462,6 +3457,12 @@ int Mob::AddBuff(Mob *caster, uint16 spell_id, int duration, int32 level_overrid
 	buffs[emptyslot].RootBreakChance = 0;
 	buffs[emptyslot].virus_spread_time = 0;
 	buffs[emptyslot].instrument_mod = caster ? caster->GetInstrumentMod(spell_id) : 10;
+	buffs[emptyslot].pvp = pvp;
+
+	if(caster && caster->IsClient())
+		buffs[emptyslot].caster_charid = caster->CastToClient()->CharacterID();
+	else
+		buffs[emptyslot].caster_charid = 0;
 
 	if (level_override > 0 || buffs[emptyslot].numhits > 0) {
 		buffs[emptyslot].UpdateClient = true;
@@ -3490,6 +3491,8 @@ int Mob::AddBuff(Mob *caster, uint16 spell_id, int duration, int32 level_overrid
 #endif
 		(IsMerc() && GetOwner() && GetOwner()->IsClient() && !GetOwner()->CastToClient()->GetPVP()))
 	{
+		LogSpells("Mob::AddBuff(): MakeBuffsPacket():");
+
 		EQApplicationPacket *outapp = MakeBuffsPacket();
 
 		entity_list.QueueClientsByTarget(this, outapp, false, nullptr, true, false, EQ::versions::maskSoDAndLater);

@@ -333,6 +333,9 @@ struct Buffs_Struct {
 	bool	persistant_buff;
 	bool	client; //True if the caster is a client
 	bool	UpdateClient;
+	bool	pvp;
+	uint32	caster_charid;
+	int32	last_effect;
 };
 
 struct StatBonuses {

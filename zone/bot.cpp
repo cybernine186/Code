@@ -4627,7 +4627,7 @@ void Bot::PerformTradeWithClient(int16 beginSlotID, int16 endSlotID, Client* cli
 		CalcBotStats(client->GetBotOption(Client::booStatsUpdate));
 }
 
-bool Bot::Death(Mob *killerMob, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill) {
+bool Bot::Death(Mob *killerMob, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill, int8 buffslot, bool iBuffTic) {
 	if(!NPC::Death(killerMob, damage, spell_id, attack_skill))
 		return false;
 

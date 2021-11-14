@@ -1593,21 +1593,19 @@ void Mob::Heal()
 }
 
 void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill, bool avoidable, int8 buffslot, bool iBuffTic, eSpecialAttacks special)
-{
+{	
 	if (dead || IsCorpse())
 		return;
 
+	LogCombat("Client::Damage(): other [{}], damage [{}], spell_id [{}], attack_skill [{}], avoidable [{}], buffslot [{}], iBuffTic [{}]", 
+		other?other->CastToClient()->GetCleanName():buffs[buffslot].caster_name, damage, spell_id, attack_skill, avoidable, buffslot, iBuffTic);
+		
 	if (spell_id == 0)
 		spell_id = SPELL_UNKNOWN;
 
 	//handle EVENT_PVP. Resets after we have not been attacked for 12 seconds
 	if (!pvp_attacked_timer.Check() && other && other->IsClient())
-	{
-	//	LogCombat("Triggering EVENT_PVP due to attack by [{}]", other ? other->GetName() : "nullptr");
-	//	parse->EventPlayer(EVENT_PVP, this, other->GetName(), 0, 0);
-//
-	pvp_attacked_timer.Start(60000);
-	}
+		pvp_attacked_timer.Start(60000);
 
 
 	// cut all PVP spell damage to 2/3
@@ -1627,6 +1625,12 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
  			attack_skill == EQ::skills::SkillThrowing) PvPMitigation = RuleI(World, PVPRangedMitigation);
 
 		damage = std::max((damage * PvPMitigation) / 100, 1);
+		
+		// Update the client buff last_effect with the mitigated damage
+		// We are not treating spell DoTs as client casted after zoning
+		// This allows DoTs to have the safe effect as client casted and bypass some functions
+		if(iBuffTic && buffslot >= 0)
+			buffs[buffslot].last_effect = damage;
 	}
 
 	if (!ClientFinishedLoading())
@@ -1654,7 +1658,7 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 	}
 }
 
-bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::SkillType attack_skill)
+bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::SkillType attack_skill, int8 buffslot, bool iBuffTic)
 {
 	if (!ClientFinishedLoading())
 		return false;
@@ -1665,9 +1669,15 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 	if (!spell)
 		spell = SPELL_UNKNOWN;
 
+	uint32 caster_charid = 0;
+	if (iBuffTic && buffslot >= 0)
+		caster_charid = buffs[buffslot].caster_charid;
+	else
+		caster_charid = 0;
+
 	std::string export_string = fmt::format(
 		"{} {} {} {}",
-		killerMob ? killerMob->GetID() : 0,
+		killerMob ? killerMob->GetID() : caster_charid,
 		damage,
 		spell,
 		static_cast<int>(attack_skill)
@@ -1679,7 +1689,8 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		return false;
 	}
 
-	if (killerMob && killerMob->IsClient() && (spell != SPELL_UNKNOWN) && damage > 0) {
+	if (killerMob && killerMob->IsClient() && (spell != SPELL_UNKNOWN) && damage > 0)
+	{
 		char val1[20] = { 0 };
 
 		entity_list.MessageCloseString(
@@ -1693,9 +1704,24 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			ConvertArray(damage, val1)/* Message3 */
 		);
 	}
+	// else if (iBuffTic && buffs[buffslot].client && (spell != SPELL_UNKNOWN) && damage > 0)
+	// {
+		// char val1[20] = { 0 };
+
+		// entity_list.MessageCloseString(
+			// this, /* Sender */
+			// true, /* Skip Sender */
+			// RuleI(Range, DamageMessages),
+			// Chat::NonMelee, /* 283 */
+			// YOU_HIT_NONMELEE, /* %1 hit %2 for %3 points of non-melee damage. */
+			// buffs[buffslot].caster_name, /* Message1 */
+			// GetCleanName(), /* Message2 */
+			// ConvertArray(damage, val1)/* Message3 */
+		// );
+	// }
 
 	int exploss = 0;
-	LogCombat("Fatal blow dealt by [{}] with [{}] damage, spell [{}], skill [{}]", killerMob ? killerMob->GetName() : "Unknown", damage, spell, attack_skill);
+	LogCombat("Fatal blow dealt by [{}] with [{}] damage, spell [{}], skill [{}]", killerMob ? killerMob->GetName() : buffs[buffslot].caster_name, damage, spell, attack_skill);
 
 	// #1: Send death packet to everyone
 	uint8 killed_level = GetLevel();
@@ -2304,6 +2330,10 @@ bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 }
 
 void NPC::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill, bool avoidable, int8 buffslot, bool iBuffTic, eSpecialAttacks special) {
+	
+	LogCombat("NPC::Damage(): other [{}], damage [{}], spell_id [{}], attack_skill [{}], avoidable [{}], buffslot [{}], iBuffTic [{}]", 
+		other?other->GetCleanName():"NOBODY", damage, spell_id, attack_skill, avoidable, buffslot, iBuffTic);
+		
 	if (spell_id == 0)
 		spell_id = SPELL_UNKNOWN;
 
@@ -2350,7 +2380,7 @@ void NPC::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::SkillTyp
 	}
 }
 
-bool NPC::Death(Mob* killer_mob, int32 damage, uint16 spell, EQ::skills::SkillType attack_skill)
+bool NPC::Death(Mob* killer_mob, int32 damage, uint16 spell, EQ::skills::SkillType attack_skill, int8 buffslot, bool iBuffTic)
 {
 	LogCombat("Fatal blow dealt by [{}] with [{}] damage, spell [{}], skill [{}]",
 		((killer_mob) ? (killer_mob->GetName()) : ("[nullptr]")), damage, spell, attack_skill);
@@ -3640,6 +3670,10 @@ bool Mob::CheckDoubleAttack()
 }
 
 void Mob::CommonDamage(Mob* attacker, int &damage, const uint16 spell_id, const EQ::skills::SkillType skill_used, bool &avoidable, const int8 buffslot, const bool iBuffTic, eSpecialAttacks special) {
+	
+	LogCombat("Mob::CommonDamage(): victim [{}], attacker [{}], damage [{}], spell_id [{}], skill_used [{}], avoidable [{}], buffslot [{}], iBuffTic [{}]", 
+		GetCleanName(), attacker?attacker->CastToClient()->GetCleanName():buffs[buffslot].caster_name, damage, spell_id, skill_used, avoidable, buffslot, iBuffTic);
+
 	// This method is called with skill_used=ABJURE for Damage Shield damage.
 	bool FromDamageShield = (skill_used == EQ::skills::SkillAbjuration);
 	bool ignore_invul = false;
@@ -3795,7 +3829,7 @@ void Mob::CommonDamage(Mob* attacker, int &damage, const uint16 spell_id, const 
 		}
 
 		//final damage has been determined.
-
+		LogHPUpdate("GetHP() [{}], damage [{}], SetHP [{}]", GetHP(), damage, GetHP() - damage);
 		SetHP(GetHP() - damage);
 
 
@@ -3808,7 +3842,7 @@ void Mob::CommonDamage(Mob* attacker, int &damage, const uint16 spell_id, const 
 			if (!IsSaved && !TrySpellOnDeath()) {
 				SetHP(-500);
 
-				if (Death(attacker, damage, spell_id, skill_used)) {
+				if (Death(attacker, damage, spell_id, skill_used, buffslot, iBuffTic)) {
 					return;
 				}
 			}

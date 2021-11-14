@@ -21,6 +21,7 @@ public:
 		int         character_id;
 		int         slot_id;
 		int         spell_id;
+		int			caster_charid
 		int         caster_level;
 		std::string caster_name;
 		int         ticsremaining;
@@ -35,6 +36,7 @@ public:
 		int         caston_z;
 		int         ExtraDIChance;
 		int         instrument_mod;
+		int         pvp;
 	};
 
 	static std::string PrimaryKey()
@@ -62,6 +64,7 @@ public:
 			"caston_z",
 			"ExtraDIChance",
 			"instrument_mod",
+			"pvp",
 		};
 	}
 
@@ -114,6 +117,7 @@ public:
 		entry.caston_z       = 0;
 		entry.ExtraDIChance  = 0;
 		entry.instrument_mod = 10;
+		entry.pvp            = false;
 
 		return entry;
 	}
@@ -166,6 +170,7 @@ public:
 			entry.caston_z       = atoi(row[14]);
 			entry.ExtraDIChance  = atoi(row[15]);
 			entry.instrument_mod = atoi(row[16]);
+			entry.pvp            = atoi(row[17]);
 
 			return entry;
 		}
@@ -216,6 +221,7 @@ public:
 		update_values.push_back(columns[14] + " = " + std::to_string(character_buffs_entry.caston_z));
 		update_values.push_back(columns[15] + " = " + std::to_string(character_buffs_entry.ExtraDIChance));
 		update_values.push_back(columns[16] + " = " + std::to_string(character_buffs_entry.instrument_mod));
+		update_values.push_back(columns[17] + " = " + std::to_string(character_buffs_entry.pvp));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -254,6 +260,7 @@ public:
 		insert_values.push_back(std::to_string(character_buffs_entry.caston_z));
 		insert_values.push_back(std::to_string(character_buffs_entry.ExtraDIChance));
 		insert_values.push_back(std::to_string(character_buffs_entry.instrument_mod));
+		insert_values.push_back(std::to_string(character_buffs_entry.pvp));
 
 		auto results = db.QueryDatabase(
 			fmt::format(
@@ -300,6 +307,7 @@ public:
 			insert_values.push_back(std::to_string(character_buffs_entry.caston_z));
 			insert_values.push_back(std::to_string(character_buffs_entry.ExtraDIChance));
 			insert_values.push_back(std::to_string(character_buffs_entry.instrument_mod));
+			insert_values.push_back(std::to_string(character_buffs_entry.pvp));
 
 			insert_chunks.push_back("(" + implode(",", insert_values) + ")");
 		}
@@ -350,6 +358,7 @@ public:
 			entry.caston_z       = atoi(row[14]);
 			entry.ExtraDIChance  = atoi(row[15]);
 			entry.instrument_mod = atoi(row[16]);
+			entry.pvp            = atoi(row[17]);
 
 			all_entries.push_back(entry);
 		}
@@ -391,6 +400,7 @@ public:
 			entry.caston_z       = atoi(row[14]);
 			entry.ExtraDIChance  = atoi(row[15]);
 			entry.instrument_mod = atoi(row[16]);
+			entry.pvp            = atoi(row[17]);
 
 			all_entries.push_back(entry);
 		}

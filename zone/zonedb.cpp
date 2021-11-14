@@ -3605,14 +3605,14 @@ void ZoneDatabase::SaveBuffs(Client *client) {
 		query = StringFormat("INSERT INTO `character_buffs` (character_id, slot_id, spell_id, "
                             "caster_level, caster_name, ticsremaining, counters, numhits, melee_rune, "
                             "magic_rune, persistent, dot_rune, caston_x, caston_y, caston_z, ExtraDIChance, "
-							"instrument_mod) "
+							"instrument_mod, pvp, client, caster_charid, last_effect) "
                             "VALUES('%u', '%u', '%u', '%u', '%s', '%d', '%u', '%u', '%u', '%u', '%u', '%u', "
-                            "'%i', '%i', '%i', '%i', '%i')", client->CharacterID(), index, buffs[index].spellid,
+                            "'%i', '%i', '%i', '%i', '%i', '%i', '%i', '%i', '%d')", client->CharacterID(), index, buffs[index].spellid,
                             buffs[index].casterlevel, buffs[index].caster_name, buffs[index].ticsremaining,
                             buffs[index].counters, buffs[index].numhits, buffs[index].melee_rune,
                             buffs[index].magic_rune, buffs[index].persistant_buff, buffs[index].dot_rune,
                             buffs[index].caston_x, buffs[index].caston_y, buffs[index].caston_z,
-                            buffs[index].ExtraDIChance, buffs[index].instrument_mod);
+                            buffs[index].ExtraDIChance, buffs[index].instrument_mod, buffs[index].pvp, buffs[index].client, buffs[index].caster_charid, buffs[index].last_effect);
        QueryDatabase(query);
 	}
 }
@@ -3628,7 +3628,7 @@ void ZoneDatabase::LoadBuffs(Client *client)
 
 	std::string query = StringFormat("SELECT spell_id, slot_id, caster_level, caster_name, ticsremaining, "
 					 "counters, numhits, melee_rune, magic_rune, persistent, dot_rune, "
-					 "caston_x, caston_y, caston_z, ExtraDIChance, instrument_mod "
+					 "caston_x, caston_y, caston_z, ExtraDIChance, instrument_mod, pvp, caster_charid, client, last_effect "
 					 "FROM `character_buffs` WHERE `character_id` = '%u'",
 					 client->CharacterID());
 	auto results = QueryDatabase(query);
@@ -3641,53 +3641,41 @@ void ZoneDatabase::LoadBuffs(Client *client)
 		if (slot_id >= client->GetMaxBuffSlots())
 			continue;
 
-		uint32 spell_id = atoul(row[0]);
-		if (!IsValidSpell(spell_id))
+		if (!IsValidSpell(atoul(row[0])))
 			continue;
-
-		Client *caster = entity_list.GetClientByName(row[3]);
-		uint32 caster_level = atoi(row[2]);
-		int32 ticsremaining = atoi(row[4]);
-		uint32 counters = atoul(row[5]);
-		uint32 numhits = atoul(row[6]);
-		uint32 melee_rune = atoul(row[7]);
-		uint32 magic_rune = atoul(row[8]);
-		uint8 persistent = atoul(row[9]);
-		uint32 dot_rune = atoul(row[10]);
-		int32 caston_x = atoul(row[11]);
-		int32 caston_y = atoul(row[12]);
-		int32 caston_z = atoul(row[13]);
-		int32 ExtraDIChance = atoul(row[14]);
-		uint32 instrument_mod = atoul(row[15]);
-
-		buffs[slot_id].spellid = spell_id;
-		buffs[slot_id].casterlevel = caster_level;
-
-		if (caster) {
-			buffs[slot_id].casterid = caster->GetID();
-			strcpy(buffs[slot_id].caster_name, caster->GetName());
-			buffs[slot_id].client = true;
-		} else {
-			buffs[slot_id].casterid = 0;
-			strcpy(buffs[slot_id].caster_name, "");
-			buffs[slot_id].client = false;
-		}
-
-		buffs[slot_id].ticsremaining = ticsremaining;
-		buffs[slot_id].counters = counters;
-		buffs[slot_id].numhits = numhits;
-		buffs[slot_id].melee_rune = melee_rune;
-		buffs[slot_id].magic_rune = magic_rune;
-		buffs[slot_id].persistant_buff = persistent ? true : false;
-		buffs[slot_id].dot_rune = dot_rune;
-		buffs[slot_id].caston_x = caston_x;
-		buffs[slot_id].caston_y = caston_y;
-		buffs[slot_id].caston_z = caston_z;
-		buffs[slot_id].ExtraDIChance = ExtraDIChance;
+		
+		buffs[slot_id].spellid = atoul(row[0]);
+		buffs[slot_id].casterlevel = atoi(row[2]);
+		buffs[slot_id].ticsremaining = atoi(row[4]);
+		buffs[slot_id].counters = atoul(row[5]);
+		buffs[slot_id].numhits = atoul(row[6]);
+		buffs[slot_id].melee_rune = atoul(row[7]);
+		buffs[slot_id].magic_rune = atoul(row[8]);
+		buffs[slot_id].persistant_buff = atoul(row[9]) ? true : false;
+		buffs[slot_id].dot_rune = atoul(row[10]);
+		buffs[slot_id].caston_x = atoul(row[11]);
+		buffs[slot_id].caston_y = atoul(row[12]);
+		buffs[slot_id].caston_z = atoul(row[13]);
+		buffs[slot_id].ExtraDIChance = atoul(row[14]);
 		buffs[slot_id].RootBreakChance = 0;
 		buffs[slot_id].virus_spread_time = 0;
 		buffs[slot_id].UpdateClient = false;
-		buffs[slot_id].instrument_mod = instrument_mod;
+		buffs[slot_id].instrument_mod = atoul(row[15]);
+		buffs[slot_id].pvp = atoi(row[16]);
+		buffs[slot_id].caster_charid = atoi(row[17]);
+		buffs[slot_id].last_effect = atoi(row[19]);
+		
+		Client *caster = entity_list.GetClientByCharID(atoul(row[17]));
+
+		if (caster) {
+			buffs[slot_id].casterid = caster->GetID();
+			strcpy(buffs[slot_id].caster_name, row[3]);
+			buffs[slot_id].client = true;
+		} else {
+			buffs[slot_id].casterid = 0;
+			strcpy(buffs[slot_id].caster_name, row[3]);
+			buffs[slot_id].client = atoi(row[18]);
+		}
 	}
 
 	// We load up to the most our client supports

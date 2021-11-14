@@ -905,6 +905,10 @@ std::string lua_get_char_name_by_id(uint32 char_id) {
 	return database.GetCharNameByID(char_id);
 }
 
+std::string lua_get_char_class_by_id(uint32 char_id) {
+	return database.GetCharClassByID(char_id);
+}
+
 uint32 lua_get_char_id_by_name(const char* name) {
 	return quest_manager.getcharidbyname(name);
 }
@@ -3680,6 +3684,7 @@ luabind::scope lua_register_general() {
 		luabind::def("set_data", (void(*)(std::string, std::string, std::string))&lua_set_data),
 		luabind::def("delete_data", (bool(*)(std::string))&lua_delete_data),
 		luabind::def("get_char_name_by_id", &lua_get_char_name_by_id),
+		luabind::def("get_char_class_by_id", &lua_get_char_class_by_id),
 		luabind::def("get_char_id_by_name", (uint32(*)(const char*))&lua_get_char_id_by_name),
 		luabind::def("get_class_name", (std::string(*)(uint8))&lua_get_class_name),
 		luabind::def("get_class_name", (std::string(*)(uint8,uint8))&lua_get_class_name),
