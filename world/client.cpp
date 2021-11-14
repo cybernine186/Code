@@ -1011,7 +1011,10 @@ bool Client::HandlePacket(const EQApplicationPacket *app) {
 	EmuOpcode opcode = app->GetOpcode();
 
 	LogNetcode("Received EQApplicationPacket [{:#04x}]", opcode);
-
+	
+	if (LogSys.log_settings[Logs::PacketClientServerWithDump].is_category_enabled == 3)
+		Log(Logs::General, Logs::PacketClientServerWithDump, "Received EQApplicationPacket [%s - 0x%04x] [Size: %u] %s", OpcodeNames[opcode], opcode, app->Size(), DumpPacketToString(app).c_str());
+	
 	if (!eqs->CheckState(ESTABLISHED)) {
 		LogInfo("Client disconnected (net inactive on send)");
 		return false;
