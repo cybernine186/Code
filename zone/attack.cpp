@@ -1630,10 +1630,11 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 	if (!ClientFinishedLoading())
 		damage = -5;
 
-	if (other != nullptr && iBuffTic && is_client_moving && !IsRooted() && !IsFeared() && !IsRunning() && !IsBardSong(spell_id)) { //If the target is moving dots only do partial damage
-		damage = (damage * .66);
+	//If the target is moving dots only do partial damage
+	if (other != nullptr && iBuffTic && is_client_moving && !IsRooted() && !IsFeared() && !IsRunning() && !IsBardSong(spell_id))
+	{
+		damage = (damage * RuleR(PVP, DoTPartialsOnMovement));
 	}
-
 
 	//do a majority of the work...
 	CommonDamage(other, damage, spell_id, attack_skill, avoidable, buffslot, iBuffTic, special);

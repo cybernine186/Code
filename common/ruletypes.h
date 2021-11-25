@@ -417,6 +417,7 @@ RULE_BOOL(Spells, ClickyCasting, true, "")
 RULE_BOOL(Spells, NoBeneficialDetrimentalBlock, true, "")
 RULE_INT(Spells, BuffDurationModifier, 1, "")
 RULE_BOOL(Spells, LOSCheckOnSpellFinished, true, "Enable Line of Sight check on Spell Finished")
+RULE_BOOL(Spells, LegacyDispell, false, "Cancel Magic effects are treated as legacy or live. Legacy removes top slot.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Combat)
@@ -825,6 +826,7 @@ RULE_CATEGORY_END()
 
 RULE_CATEGORY(PVP)
 RULE_BOOL(PVP, FactionCityKilling, false, "When enabled player killing the inhabitants of a city lowers the killers faction.")
+RULE_REAL(PVP, DoTPartialsOnMovement, 1, "Amount to mitigate DoT damage while moving. 1 is full damage, mitigated values are .1 to .99, typical mitigation will be .33")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Command)

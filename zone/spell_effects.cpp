@@ -1091,10 +1091,14 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 						spells[buffs[slot].spellid].dispel_flag == 0 &&
 						!IsDiscipline(buffs[slot].spellid))
 					{
-						if (caster && TryDispel(caster->GetLevel(),buffs[slot].casterlevel, effect_value)){
-							BuffFadeBySlot(slot);
-							slot = buff_count;
-						}
+							if (RuleB(Spells, LegacyDispell) && caster && caster->IsClient())
+							{
+								BuffFadeBySlot(slot);
+								slot = buff_count;
+							} else if (caster && TryDispel(caster->GetLevel(), buffs[slot].casterlevel, effect_value)) {
+								BuffFadeBySlot(slot);
+								slot = buff_count;
+							}
 					}
 				}
 				break;
@@ -1115,16 +1119,27 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 					found on spell with value 950 (95% spells would have 7% failure rates).
 					Further investigation is needed. ~ Kayen
 				*/
-				int chance = spells[spell_id].base[i];
+
 				int buff_count = GetMaxTotalSlots();
-				for(int slot = 0; slot < buff_count; slot++) {
+				for (int slot = 0; slot < buff_count; slot++)
+				{
 					if (buffs[slot].spellid != SPELL_UNKNOWN &&
 						IsDetrimentalSpell(buffs[slot].spellid) &&
 						spells[buffs[slot].spellid].dispel_flag == 0)
 					{
-						if (zone->random.Int(1, 1000) <= chance){
-							BuffFadeBySlot(slot);
-							slot = buff_count;
+						if (RuleB(Spells, LegacyDispell))
+						{
+							if (caster && TryDispel(caster->GetLevel(), buffs[slot].casterlevel, effect_value))
+							{
+								BuffFadeBySlot(slot);
+								slot = buff_count;
+							}
+						}
+						else {
+							if (zone->random.Int(1, 1000) <= spells[spell_id].base[i]) {
+								BuffFadeBySlot(slot);
+								slot = buff_count;
+							}
 						}
 					}
 				}
@@ -1142,16 +1157,32 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 					break;
 				}
 
-				int chance = spells[spell_id].base[i];
 				int buff_count = GetMaxTotalSlots();
-				for(int slot = 0; slot < buff_count; slot++) {
+				for (int slot = 0; slot < buff_count; slot++) {
 					if (buffs[slot].spellid != SPELL_UNKNOWN &&
 						IsBeneficialSpell(buffs[slot].spellid) &&
 						spells[buffs[slot].spellid].dispel_flag == 0)
 					{
-						if (zone->random.Int(1, 1000) <= chance) {
-							BuffFadeBySlot(slot);
-							slot = buff_count;
+
+						if (RuleB(Spells, LegacyDispell))
+						{
+							if (caster && caster->IsClient())
+							{
+								BuffFadeBySlot(slot);
+								slot = buff_count;
+							}
+							else if (caster && TryDispel(caster->GetLevel(), buffs[slot].casterlevel, effect_value))
+							{
+								BuffFadeBySlot(slot);
+								slot = buff_count;
+							}
+						}
+						else {
+							if (zone->random.Int(1, 1000) <= spells[spell_id].base[i])
+							{
+								BuffFadeBySlot(slot);
+								slot = buff_count;
+							}
 						}
 					}
 				}
