@@ -235,39 +235,55 @@ int32 Client::LevelRegen()
 
 int32 Client::CalcHPRegen(bool bCombat)
 {
-	int item_regen = itembonuses.HPRegen; // worn spells and +regen, already capped
-	item_regen += GetHeroicSTA() / 20;
-
-	item_regen += aabonuses.HPRegen;
 
 	int base = 0;
-	auto base_data = database.GetBaseData(GetLevel(), GetClass());
-	if (base_data)
-		base = static_cast<int>(base_data->hp_regen);
-
+	int item_regen = 0;
+	int fast_regen = 0;
 	auto level = GetLevel();
 	bool skip_innate = false;
 
-	if (IsSitting()) {
-		if (level >= 50) {
-			base++;
-			if (level >= 65)
-				base++;
-		}
+	// worn spells and +regen, already capped
+	item_regen = itembonuses.HPRegen; 
+	item_regen += GetHeroicSTA() / 20;
+	item_regen += aabonuses.HPRegen;
 
-		if ((Timer::GetCurrentTime() - tmSitting) > 60000) {
-			if (!IsAffectedByBuffByGlobalGroup(GlobalGroup::Lich)) {
-				auto tic_diff = std::min((Timer::GetCurrentTime() - tmSitting) / 60000, static_cast<uint32>(9));
-				if (tic_diff != 1) { // starts at 2 mins
-					int tic_bonus = tic_diff * 1.5 * base;
-					if (m_pp.InnateSkills[InnateRegen] != InnateDisabled)
-						tic_bonus = tic_bonus * 1.2;
-					base = tic_bonus;
-					skip_innate = true;
-				} else if (m_pp.InnateSkills[InnateRegen] == InnateDisabled) { // no innate regen gets first tick
-					int tic_bonus = base * 1.5;
-					base = tic_bonus;
-				}
+	// Base Regen, Legacy or Modern
+	if (RuleB(Character, LegacyRegeneration))
+	{
+		base = LevelRegen();
+	}
+	else
+	{
+		auto base_data = database.GetBaseData(GetLevel(), GetClass());
+		if (base_data)
+			base = static_cast<int>(base_data->hp_regen);
+
+		if (IsSitting())
+		{
+			if (level >= 50)
+			{
+				base++;
+				if (level >= 65)
+					base++;
+			}
+		}
+	}
+
+	if (IsSitting() && ((Timer::GetCurrentTime() - tmSitting) > 60000))
+	{
+		if (!IsAffectedByBuffByGlobalGroup(GlobalGroup::Lich))
+		{
+			auto tic_diff = std::min((Timer::GetCurrentTime() - tmSitting) / 60000, static_cast<uint32>(9));
+			if (tic_diff != 1) { // starts at 2 mins
+				int tic_bonus = tic_diff * 1.5 * base;
+				if (m_pp.InnateSkills[InnateRegen] != InnateDisabled)
+					tic_bonus = tic_bonus * 1.2;
+				base = tic_bonus;
+				skip_innate = true;
+			}
+			else if (m_pp.InnateSkills[InnateRegen] == InnateDisabled) { // no innate regen gets first tick
+				int tic_bonus = base * 1.5;
+				base = tic_bonus;
 			}
 		}
 	}
@@ -283,21 +299,25 @@ int32 Client::CalcHPRegen(bool bCombat)
 	}
 
 	if (IsStarved())
-		base = 0;
+		base = 2;
 
 	base += GroupLeadershipAAHealthRegeneration();
 	// some IsKnockedOut that sets to -1
 	base = base * 100.0f * AreaHPRegen * 0.01f + 0.5f;
 	// another check for IsClient && !(base + item_regen) && Cur_HP <= 0 do --base; do later
 
-	if (!bCombat && CanFastRegen() && (IsSitting() || CanMedOnHorse())) {
+	if (!bCombat && CanFastRegen() && (IsSitting() || CanMedOnHorse())) 
+	{
 		auto max_hp = GetMaxHP();
-		int fast_regen = 6 * (max_hp / zone->newzone_data.FastRegenHP);
+		fast_regen = 6 * (max_hp / zone->newzone_data.FastRegenHP);
 		if (base < fast_regen) // weird, but what the client is doing
 			base = fast_regen;
 	}
-
+	
 	int regen = base + item_regen + spellbonuses.HPRegen; // TODO: client does this in buff tick
+	
+	LogHPUpdate("Client::CalcHPRegen(): base [{}], item_regen [{}], spellbonuses [{}], fast_regen [{}], regen [{}]", base, item_regen, spellbonuses.HPRegen, fast_regen, regen);
+	
 	return (regen * RuleI(Character, HPRegenMultiplier) / 100);
 }
 
@@ -703,18 +723,24 @@ int32 Client::CalcBaseManaRegen()
 	else {
 		regen = 2;
 	}
+
 	return regen;
 }
 
 int32 Client::CalcManaRegen(bool bCombat)
 {
+	int fast_regen = 0;
 	int regen = 0;
-	auto level = GetLevel();
-	// so the new formulas break down with older skill caps where you don't have the skill until 4 or 8
-	// so for servers that want to use the old skill progression they can set this rule so they
-	// will get at least 1 for standing and 2 for sitting.
-	bool old = RuleB(Character, OldMinMana);
-	if (!IsStarved()) {
+	if (RuleB(Character, LegacyRegeneration))
+	{
+		regen = CalcBaseManaRegen();
+	} 
+	else {
+		// so the new formulas break down with older skill caps where you don't have the skill until 4 or 8
+		// so for servers that want to use the old skill progression they can set this rule so they
+		// will get at least 1 for standing and 2 for sitting.
+		bool old = RuleB(Character, OldMinMana);
+
 		// client does some base regen for shrouds here
 		if (IsSitting() || CanMedOnHorse()) {
 			// kind of weird to do it here w/e
@@ -731,16 +757,23 @@ int32 Client::CalcManaRegen(bool bCombat)
 			}
 			if (old)
 				regen = std::max(regen, 2);
-		} else if (old) {
+		}
+		else if (old) {
 			regen = std::max(regen, 1);
+		}
+		regen = regen;
+
+		auto level = GetLevel();
+		if (level > 61) {
+			regen++;
+			if (level > 63)
+				regen++;
 		}
 	}
 
-	if (level > 61) {
-		regen++;
-		if (level > 63)
-			regen++;
-	}
+	// If Hungry or Thirsty do half regen
+	if (IsStarved())
+		regen = 2;
 
 	regen += aabonuses.ManaRegen;
 	// add in + 1 bonus for SE_CompleteHeal, but we don't do anything for it yet?
@@ -767,12 +800,15 @@ int32 Client::CalcManaRegen(bool bCombat)
 
 	if (!bCombat && CanFastRegen() && (IsSitting() || CanMedOnHorse())) {
 		auto max_mana = GetMaxMana();
-		int fast_regen = 6 * (max_mana / zone->newzone_data.FastRegenMana);
+		fast_regen = 6 * (max_mana / zone->newzone_data.FastRegenMana);
 		if (regen < fast_regen) // weird, but what the client is doing
 			regen = fast_regen;
 	}
 
 	regen += spellbonuses.ManaRegen; // TODO: live does this in buff tick
+
+	LogHPUpdate("Client::CalcManaRegen(): Client [{}], regen [{}], heroic_bonus [{}], item_bonus [{}], fast_regen [{}]", regen, heroic_bonus, item_bonus, fast_regen);
+
 	return (regen * RuleI(Character, ManaRegenMultiplier) / 100);
 }
 
