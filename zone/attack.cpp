@@ -59,6 +59,7 @@ extern FastMath g_Math;
 extern EntityList entity_list;
 extern Zone* zone;
 
+//SYNC WITH: tune.cpp, mob.h TuneAttackAnimation
 EQ::skills::SkillType Mob::AttackAnimation(int Hand, const EQ::ItemInstance* weapon, EQ::skills::SkillType skillinuse)
 {
 	// Determine animation
@@ -141,14 +142,30 @@ EQ::skills::SkillType Mob::AttackAnimation(int Hand, const EQ::ItemInstance* wea
 	}
 
 	// If we're attacking with the secondary hand, play the dual wield anim
-	if (Hand == EQ::invslot::slotSecondary)	// DW anim
+	if (Hand == EQ::invslot::slotSecondary) {// DW anim
 		type = animDualWield;
+
+		//allow animation chance to fire to be similar to your dw chance
+		if (GetDualWieldingSameDelayWeapons() == 2) {
+			SetDualWieldingSameDelayWeapons(3);
+		}
+	}
+	
+	//If both weapons have same delay this allows a chance for DW animation
+	if (GetDualWieldingSameDelayWeapons() && Hand == EQ::invslot::slotPrimary) {
+
+		if (GetDualWieldingSameDelayWeapons() == 3 && zone->random.Roll(50)) {
+			type = animDualWield;
+			SetDualWieldingSameDelayWeapons(2);//Don't roll again till you do another dw attack.
+		}
+		SetDualWieldingSameDelayWeapons(2);//Ensures first attack is always primary.
+	}
 
 	DoAnim(type, 0, false);
 
 	return skillinuse;
 }
-
+//SYNC WITH: tune.cpp, mob.h Tunecompute_tohit
 int Mob::compute_tohit(EQ::skills::SkillType skillinuse)
 {
 	int tohit = GetSkill(EQ::skills::SkillOffense) + 7;
@@ -169,6 +186,7 @@ int Mob::compute_tohit(EQ::skills::SkillType skillinuse)
 }
 
 // return -1 in cases that always hit
+//SYNC WITH: tune.cpp, mob.h TuneGetTotalToHit
 int Mob::GetTotalToHit(EQ::skills::SkillType skill, int chance_mod)
 {
 	if (chance_mod >= 10000) // override for stuff like SE_SkillAttack
@@ -232,6 +250,7 @@ int Mob::GetTotalToHit(EQ::skills::SkillType skill, int chance_mod)
 
 // based on dev quotes
 // the AGI bonus has actually drastically changed from classic
+//SYNC WITH: tune.cpp, mob.h Tunecompute_defense
 int Mob::compute_defense()
 {
 	int defense = GetSkill(EQ::skills::SkillDefense) * 400 / 225;
@@ -260,6 +279,7 @@ int Mob::compute_defense()
 }
 
 // return -1 in cases that always miss
+// SYNC WITH : tune.cpp, mob.h TuneGetTotalDefense()
 int Mob::GetTotalDefense()
 {
 	auto avoidance = compute_defense() + 10; // add 10 in case the NPC's stats are fucked
@@ -287,6 +307,7 @@ int Mob::GetTotalDefense()
 
 // called when a mob is attacked, does the checks to see if it's a hit
 // and does other mitigation checks. 'this' is the mob being attacked.
+// SYNC WITH : tune.cpp, mob.h TuneCheckHitChance()
 bool Mob::CheckHitChance(Mob* other, DamageHitInfo &hit)
 {
 #ifdef LUA_EQEMU
@@ -373,6 +394,11 @@ bool Mob::AvoidDamage(Mob *other, DamageHitInfo &hit)
 	*/
 	Mob *attacker = other;
 	Mob *defender = this;
+	
+	// PVP: If sitting you cannot avoid damage
+	if (defender->CastToClient()->IsSitting()) {
+		return false;
+	}
 
 	bool InFront = !attacker->BehindMob(this, attacker->GetX(), attacker->GetY());
 
@@ -383,25 +409,33 @@ bool Mob::AvoidDamage(Mob *other, DamageHitInfo &hit)
 	ultimately end up being more useful as fields in npc_types.
 	*/
 
-	int counter_all = 0;
+	int counter_all     = 0;
 	int counter_riposte = 0;
-	int counter_block = 0;
-	int counter_parry = 0;
-	int counter_dodge = 0;
+	int counter_block   = 0;
+	int counter_parry   = 0;
+	int counter_dodge   = 0;
 
 	if (attacker->GetSpecialAbility(COUNTER_AVOID_DAMAGE)) {
-		counter_all = attacker->GetSpecialAbilityParam(COUNTER_AVOID_DAMAGE, 0);
+		counter_all     = attacker->GetSpecialAbilityParam(COUNTER_AVOID_DAMAGE, 0);
 		counter_riposte = attacker->GetSpecialAbilityParam(COUNTER_AVOID_DAMAGE, 1);
-		counter_block = attacker->GetSpecialAbilityParam(COUNTER_AVOID_DAMAGE, 2);
-		counter_parry = attacker->GetSpecialAbilityParam(COUNTER_AVOID_DAMAGE, 3);
-		counter_dodge = attacker->GetSpecialAbilityParam(COUNTER_AVOID_DAMAGE, 4);
+		counter_block   = attacker->GetSpecialAbilityParam(COUNTER_AVOID_DAMAGE, 2);
+		counter_parry   = attacker->GetSpecialAbilityParam(COUNTER_AVOID_DAMAGE, 3);
+		counter_dodge   = attacker->GetSpecialAbilityParam(COUNTER_AVOID_DAMAGE, 4);
 	}
 
-	// If sitting you cannot avoid damage
-	if (defender->CastToClient()->IsSitting()) {
-		return false;
-	}
+	int modify_all     = 0;
+	int modify_riposte = 0;
+	int modify_block   = 0;
+	int modify_parry   = 0;
+	int modify_dodge   = 0;
 
+	if (GetSpecialAbility(MODIFY_AVOID_DAMAGE)) {
+		modify_all     = GetSpecialAbilityParam(MODIFY_AVOID_DAMAGE, 0);
+		modify_riposte = GetSpecialAbilityParam(MODIFY_AVOID_DAMAGE, 1);
+		modify_block   = GetSpecialAbilityParam(MODIFY_AVOID_DAMAGE, 2);
+		modify_parry   = GetSpecialAbilityParam(MODIFY_AVOID_DAMAGE, 3);
+		modify_dodge   = GetSpecialAbilityParam(MODIFY_AVOID_DAMAGE, 4);
+	}
 
 	// riposte -- it may seem crazy, but if the attacker has SPA 173 on them, they are immune to Ripo
 	bool ImmuneRipo = attacker->aabonuses.RiposteChance || attacker->spellbonuses.RiposteChance || attacker->itembonuses.RiposteChance || attacker->IsEnraged();
@@ -426,6 +460,10 @@ bool Mob::AvoidDamage(Mob *other, DamageHitInfo &hit)
 		if (counter_riposte || counter_all) {
 			float counter = (counter_riposte + counter_all) / 100.0f;
 			chance -= chance * counter;
+		}
+		if (modify_riposte || modify_all) {
+			float npc_modifier = (modify_riposte + modify_all) / 100.0f;
+			chance += chance * npc_modifier;
 		}
 		// AA Slippery Attacks
 		if (hit.hand == EQ::invslot::slotSecondary) {
@@ -466,6 +504,10 @@ bool Mob::AvoidDamage(Mob *other, DamageHitInfo &hit)
 			float counter = (counter_block + counter_all) / 100.0f;
 			chance -= chance * counter;
 		}
+		if (modify_block || modify_all) {
+			float npc_modifier = (modify_block + modify_all) / 100.0f;
+			chance += chance * npc_modifier;
+		}
 		if (zone->random.Roll(chance)) {
 			hit.damage_done = DMG_BLOCKED;
 			return true;
@@ -489,6 +531,10 @@ bool Mob::AvoidDamage(Mob *other, DamageHitInfo &hit)
 			float counter = (counter_parry + counter_all) / 100.0f;
 			chance -= chance * counter;
 		}
+		if (modify_parry || modify_all) {
+			float npc_modifier = (modify_parry + modify_all) / 100.0f;
+			chance += chance * npc_modifier;
+		}
 		if (zone->random.Roll(chance)) {
 			hit.damage_done = DMG_PARRIED;
 			return true;
@@ -511,6 +557,10 @@ bool Mob::AvoidDamage(Mob *other, DamageHitInfo &hit)
 		if (counter_dodge || counter_all) {
 			float counter = (counter_dodge + counter_all) / 100.0f;
 			chance -= chance * counter;
+		}
+		if (modify_dodge || modify_all) {
+			float npc_modifier = (modify_dodge + modify_all) / 100.0f;
+			chance += chance * npc_modifier;
 		}
 		if (zone->random.Roll(chance)) {
 			hit.damage_done = DMG_DODGED;
@@ -795,7 +845,7 @@ int Mob::GetClassRaceACBonus()
 
 	return ac_bonus;
 }
-
+//SYNC WITH: tune.cpp, mob.h TuneACSum
 int Mob::ACSum(bool skip_caps)
 {
 	int ac = 0; // this should be base AC whenever shrouds come around
@@ -870,7 +920,7 @@ int Mob::ACSum(bool skip_caps)
 }
 
 int Mob::GetBestMeleeSkill()
-	{
+{
 	int bestSkill=0;
 
 	EQ::skills::SkillType meleeSkills[]=
@@ -892,8 +942,8 @@ int Mob::GetBestMeleeSkill()
 	}
 
 	return bestSkill;
-	}
-
+}
+//SYNC WITH: tune.cpp, mob.h Tuneoffense
 int Mob::offense(EQ::skills::SkillType skill)
 {
 	int offense = GetSkill(skill);
@@ -948,7 +998,7 @@ double Mob::RollD20(int offense, int mitigation)
 
 	return mods[index];
 }
-
+//SYNC WITH: tune.cpp, mob.h TuneMeleeMitigation
 void Mob::MeleeMitigation(Mob *attacker, DamageHitInfo &hit, ExtraAttackOptions *opts)
 {
 #ifdef LUA_EQEMU
@@ -1324,6 +1374,7 @@ int Client::DoDamageCaps(int base_damage)
 }
 
 // other is the defender, this is the attacker
+//SYNC WITH: tune.cpp, mob.h TuneDoAttack
 void Mob::DoAttack(Mob *other, DamageHitInfo &hit, ExtraAttackOptions *opts)
 {
 	if (!other)
@@ -1381,6 +1432,7 @@ void Mob::DoAttack(Mob *other, DamageHitInfo &hit, ExtraAttackOptions *opts)
 //note: throughout this method, setting `damage` to a negative is a way to
 //stop the attack calculations
 // IsFromSpell added to allow spell effects to use Attack. (Mainly for the Rampage AA right now.)
+//SYNC WITH: tune.cpp, mob.h TuneClientAttack
 bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool IsFromSpell, ExtraAttackOptions *opts)
 {
 	if (!other) {
@@ -1593,7 +1645,7 @@ void Mob::Heal()
 }
 
 void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::SkillType attack_skill, bool avoidable, int8 buffslot, bool iBuffTic, eSpecialAttacks special)
-{	
+{
 	if (dead || IsCorpse())
 		return;
 
@@ -1699,21 +1751,6 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			ConvertArray(damage, val1)/* Message3 */
 		);
 	}
-	// else if (iBuffTic && buffs[buffslot].client && (spell != SPELL_UNKNOWN) && damage > 0)
-	// {
-		// char val1[20] = { 0 };
-
-		// entity_list.MessageCloseString(
-			// this, /* Sender */
-			// true, /* Skip Sender */
-			// RuleI(Range, DamageMessages),
-			// Chat::NonMelee, /* 283 */
-			// YOU_HIT_NONMELEE, /* %1 hit %2 for %3 points of non-melee damage. */
-			// buffs[buffslot].caster_name, /* Message1 */
-			// GetCleanName(), /* Message2 */
-			// ConvertArray(damage, val1)/* Message3 */
-		// );
-	// }
 
 	int exploss = 0;
 	LogCombat("Fatal blow dealt by [{}] with [{}] damage, spell [{}], skill [{}]", killerMob ? killerMob->GetName() : buffs[buffslot].caster_name, damage, spell, attack_skill);
@@ -2101,7 +2138,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 	parse->EventPlayer(EVENT_DEATH_COMPLETE, this, export_string, 0);
 	return true;
 }
-
+//SYNC WITH: tune.cpp, mob.h TuneNPCAttack
 bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool IsFromSpell, ExtraAttackOptions *opts)
 {
 	if (!other) {
@@ -5594,6 +5631,8 @@ void Mob::SetAttackTimer()
 void Client::SetAttackTimer()
 {
 	float haste_mod = GetHaste() * 0.01f;
+	int primary_speed = 0;
+	int secondary_speed = 0;
 
 	//default value for attack timer in case they have
 	//an invalid weapon equipped:
@@ -5671,6 +5710,21 @@ void Client::SetAttackTimer()
 				speed = static_cast<int>(speed + ((hhe / 100.0f) * delay));
 		}
 		TimerToUse->SetAtTrigger(std::max(RuleI(Combat, MinHastedDelay), speed), true, true);
+
+		if (i == EQ::invslot::slotPrimary) {
+			primary_speed = speed;
+		}
+		else if (i == EQ::invslot::slotSecondary) {
+			secondary_speed = speed;
+		}
+	}
+
+	//To allow for duel wield animation to display correctly if both weapons have same delay
+	if (primary_speed == secondary_speed) {
+		SetDualWieldingSameDelayWeapons(1);
+	}
+	else {
+		SetDualWieldingSameDelayWeapons(0);
 	}
 }
 
