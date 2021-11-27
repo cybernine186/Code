@@ -179,6 +179,8 @@ RULE_BOOL(Character, EnableBardMelody, true, "Enable Bard /melody by default, to
 RULE_BOOL(Character, EnableRangerAutoFire, true, "Enable Ranger /autofire by default, to disable change to false for a classic experience.")
 RULE_BOOL(Character, EnableTGB, true, "Enable /tgb (Target Group Buff) by default, to disable change to false for a classic experience.")
 RULE_INT(Character, MaxSpellGems, -1, "Max spell gems allowed, -1 = rule disabled and returns EQ::spells::SPELL_GEM_COUNT, 8=Classic-Gates of Discord, 9=Dragons of Norrath, 10=Secrets of Faydwer, 12=Underfoot")
+RULE_BOOL(Character, LegacyRegeneration, false, "Use legacy regeneration calculations over modern for a classic experience. Legacy uses the Level")
+RULE_BOOL(Character, LegacyBuffs, false, "Use legacy buff mechancis for removing (dispell) and buffing for a classic experience. Legacy will always use top slots to add or remove buffs.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Mercs)
@@ -417,7 +419,7 @@ RULE_BOOL(Spells, ClickyCasting, true, "")
 RULE_BOOL(Spells, NoBeneficialDetrimentalBlock, true, "")
 RULE_INT(Spells, BuffDurationModifier, 1, "")
 RULE_BOOL(Spells, LOSCheckOnSpellFinished, true, "Enable Line of Sight check on Spell Finished")
-RULE_BOOL(Spells, LegacyDispell, false, "Cancel Magic effects are treated as legacy or live. Legacy removes top slot.")
+
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Combat)

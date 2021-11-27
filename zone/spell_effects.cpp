@@ -1091,7 +1091,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 						spells[buffs[slot].spellid].dispel_flag == 0 &&
 						!IsDiscipline(buffs[slot].spellid))
 					{
-							if (RuleB(Spells, LegacyDispell) && caster && caster->IsClient())
+							if (RuleB(Spells, LegacyBuffs))
 							{
 								BuffFadeBySlot(slot);
 								slot = buff_count;

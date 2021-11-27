@@ -3319,6 +3319,22 @@ bool Mob::HasDiscBuff()
 	return buffs[slot].spellid != SPELL_UNKNOWN;
 }
 
+int Mob::GetFirstEmptyBuffSlot()
+{
+	int buffslot;
+	int buff_count = GetMaxTotalSlots();
+
+	for (buffslot = 0; buffslot < buff_count; buffslot++)
+	{
+		const Buffs_Struct& curbuf = buffs[buffslot];
+		if (curbuf.spellid == SPELL_UNKNOWN)
+		{
+			return buffslot;
+		}
+	}
+	return -1;
+}
+
 // returns the slot the buff was added to, -1 if it wasn't added due to
 // stacking problems, and -2 if this is not a buff
 // if caster is null, the buff will be added with the caster level being
@@ -3380,7 +3396,12 @@ int Mob::AddBuff(Mob *caster, uint16 spell_id, int duration, int32 level_overrid
 						spell_id, curbuf.spellid, buffslot, curbuf.casterlevel);
 				// If this is the first buff it would override, use its slot
 				if (!will_overwrite && !IsDisciplineBuff(spell_id))
-					emptyslot = buffslot;
+				{
+					if (RuleB(Character, LegacyBuffs))
+						emptyslot = GetFirstEmptyBuffSlot();
+					else
+						emptyslot = buffslot;
+				}
 				will_overwrite = true;
 				overwrite_slots.push_back(buffslot);
 			}
