@@ -1127,7 +1127,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 						IsDetrimentalSpell(buffs[slot].spellid) &&
 						spells[buffs[slot].spellid].dispel_flag == 0)
 					{
-						if (RuleB(Spells, LegacyDispell))
+						if (RuleB(Spells, LegacyBuffs))
 						{
 							if (caster && TryDispel(caster->GetLevel(), buffs[slot].casterlevel, effect_value))
 							{
@@ -1164,7 +1164,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 						spells[buffs[slot].spellid].dispel_flag == 0)
 					{
 
-						if (RuleB(Spells, LegacyDispell))
+						if (RuleB(Spells, LegacyBuffs))
 						{
 							if (caster && caster->IsClient())
 							{
