@@ -284,9 +284,13 @@ SET(zone_headers
 	zonedump.h
 	zone_reload.h
 	zone_store.h
+    )
+
+SET(gm_commands
+    gm_commands/tune.cpp
 )
 
-ADD_EXECUTABLE(zone ${zone_sources} ${zone_headers})
+ADD_EXECUTABLE(zone ${zone_sources} ${zone_headers} ${gm_commands})
 
 INSTALL(TARGETS zone RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
