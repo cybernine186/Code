@@ -492,15 +492,26 @@ void Client::ResetAA() {
 	m_pp.raid_leadership_points = 0;
 	m_pp.group_leadership_exp = 0;
 	m_pp.raid_leadership_exp = 0;
-
+	
+	database.DeleteCharacterAAs(CharacterID());
 	database.DeleteCharacterLeadershipAAs(CharacterID());
 }
 
 void Client::SendClearAA()
 {
-	auto outapp = new EQApplicationPacket(OP_ClearLeadershipAbilities, 0);
+	SendClearLeadershipAA();
+	SendClearPlayerAA();
+}
+
+void Client::SendClearPlayerAA()
+{
+	auto outapp = new EQApplicationPacket(OP_ClearAA, 0);
 	FastQueuePacket(&outapp);
-	outapp = new EQApplicationPacket(OP_ClearAA, 0);
+}
+
+void Client::SendClearLeadershipAA()
+{
+	auto outapp = new EQApplicationPacket(OP_ClearLeadershipAbilities, 0);
 	FastQueuePacket(&outapp);
 }
 
@@ -1706,11 +1717,18 @@ bool ZoneDatabase::LoadAlternateAdvancementAbilities(std::unordered_map<int, std
 	}
 
 	LogInfo("Loaded [{}] Alternate Advancement Abilities", (int)abilities.size());
-
+	int expansion = RuleI(Expansion, CurrentExpansion);
+	bool use_expansion_aa = RuleB(Expansion, UseCurrentExpansionAAOnly);
+	
 	LogInfo("Loading Alternate Advancement Ability Ranks");
 	ranks.clear();
-	query = "SELECT id, upper_hotkey_sid, lower_hotkey_sid, title_sid, desc_sid, cost, level_req, spell, spell_type, recast_time, "
+	if (use_expansion_aa && expansion >= 0) {
+		query = fmt::format("SELECT id, upper_hotkey_sid, lower_hotkey_sid, title_sid, desc_sid, cost, level_req, spell, spell_type, recast_time, "
+		"next_id, expansion FROM aa_ranks WHERE expansion <= {}", expansion);
+	} else {
+		query = "SELECT id, upper_hotkey_sid, lower_hotkey_sid, title_sid, desc_sid, cost, level_req, spell, spell_type, recast_time, "
 		"next_id, expansion FROM aa_ranks";
+	}
 	results = QueryDatabase(query);
 	if(results.Success()) {
 		for(auto row = results.begin(); row != results.end(); ++row) {
