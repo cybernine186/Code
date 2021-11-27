@@ -9585,9 +9585,12 @@ void Client::Handle_OP_LoadSpellSet(const EQApplicationPacket *app)
 		printf("Wrong size of LoadSpellSet_Struct! Expected: %zu, Got: %i\n", sizeof(LoadSpellSet_Struct), app->size);
 		return;
 	}
-	int i;
+
+	if (!RuleB(Character, EnableSpellSets))
+		return;
+
 	LoadSpellSet_Struct* ss = (LoadSpellSet_Struct*)app->pBuffer;
-	for (i = 0; i < GetMaxSpellGems(); i++) {
+	for (int i = 0; i < GetMaxSpellGems(); i++) {
 		if (ss->spell[i] != 0xFFFFFFFF)
 			UnmemSpell(i, true);
 	}
