@@ -3527,7 +3527,11 @@ snare has both of them negative, yet their range should work the same:
 			result = updownsign * (ubase + (caster_level * 3)); break;
 		case 105:	// confirmed 2/6/04
 			result = updownsign * (ubase + (caster_level * 4)); break;
-
+		case 106:	// Custom formula for Harm Touch, spell_id 88.
+			result = updownsign * (caster_level * 10) + 1; 
+			if (caster_level > 40)
+				result = updownsign * ((caster_level - 40) * 30) + 401;
+			break;
 		case 107:
 		{
 			int ticdif = CalcBuffDuration_formula(caster_level, durationformula, duration) - std::max((ticsremaining - 1), 0);
