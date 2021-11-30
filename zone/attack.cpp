@@ -234,8 +234,18 @@ int Mob::GetTotalToHit(EQ::skills::SkillType skill, int chance_mod)
 		itembonuses.HitChanceEffect[skill] +
 		aabonuses.HitChanceEffect[skill] +
 		spellbonuses.HitChanceEffect[skill];
+	
+	LogAttack("GetTotalToHit(): accuracy [{}], hit_bonus [{}]", accuracy, hit_bonus);
+	
+	LogAttack("GetTotalToHit(): accuracy: Highest Skill: itembonuses [{}], aabonuses [{}], spellbonuses [{}]", itembonuses.Accuracy[EQ::skills::HIGHEST_SKILL + 1], aabonuses.Accuracy[EQ::skills::HIGHEST_SKILL + 1], spellbonuses.Accuracy[EQ::skills::HIGHEST_SKILL + 1]);
+	LogAttack("GetTotalToHit(): accuracy: Skill: itembonuses [{}], aabonuses [{}], spellbonuses [{}]", itembonuses.Accuracy[skill], aabonuses.Accuracy[skill], spellbonuses.Accuracy[skill]);
+
+	LogAttack("GetTotalToHit(): hit_bonus: Highest Skill: itembonuses [{}], aabonuses [{}], spellbonuses [{}]", itembonuses.HitChanceEffect[EQ::skills::HIGHEST_SKILL + 1], aabonuses.HitChanceEffect[EQ::skills::HIGHEST_SKILL + 1], spellbonuses.HitChanceEffect[EQ::skills::HIGHEST_SKILL + 1]);
+	LogAttack("GetTotalToHit(): hit_bonus: Skill: itembonuses [{}], aabonuses [{}], spellbonuses [{}]", itembonuses.HitChanceEffect[skill], aabonuses.HitChanceEffect[skill], spellbonuses.HitChanceEffect[skill]);
 
 	accuracy = (accuracy * (100 + hit_bonus)) / 100;
+
+	LogAttack("GetTotalToHit(): accuracy total [{}]", accuracy);
 
 	// TODO: April 2003 added an archery/throwing PVP accuracy penalty while moving, should be in here some where,
 	// but PVP is less important so I haven't tried parsing it at all
@@ -340,7 +350,7 @@ bool Mob::CheckHitChance(Mob* other, DamageHitInfo &hit)
 	// Then your chance to simply avoid the attack is checked (defender's avoidance roll beat the attacker's accuracy roll.)
 	int tohit_roll = zone->random.Roll0(accuracy);
 	int avoid_roll = zone->random.Roll0(avoidance);
-	Log(Logs::Detail, Logs::Attack, "CheckHitChance accuracy(%d => %d) avoidance(%d => %d)", accuracy, tohit_roll, avoidance, avoid_roll);
+	LogAttack("CheckHitChance(): accuracy({} => {}) avoidance({} => {})", accuracy, tohit_roll, avoidance, avoid_roll);
 
 	// tie breaker? Don't want to be biased any one way
 	if (tohit_roll == avoid_roll)
@@ -1015,20 +1025,25 @@ void Mob::MeleeMitigation(Mob *attacker, DamageHitInfo &hit, ExtraAttackOptions 
 
 	Mob* defender = this;
 	auto mitigation = defender->GetMitigationAC();
+	LogAttackDetail("MeleeMitigation(): mitigation [{}]", mitigation);
+
 	if (IsClient() && attacker->IsClient())
 		mitigation = mitigation * 80 / 100; // 2004 PvP changes
 
+	LogAttackDetail("MeleeMitigation(): mitigation [{}]", mitigation);
+
 	if (opts) {
 		mitigation *= (1.0f - opts->armor_pen_percent);
+		LogAttackDetail("MeleeMitigation(): mitigation [{}], armor_pen_percent [{}]", mitigation, opts->armor_pen_percent);
 		mitigation -= opts->armor_pen_flat;
+		LogAttackDetail("MeleeMitigation(): mitigation [{}], armor_pen_flat [{}]", mitigation, opts->armor_pen_flat);
 	}
 
 	auto roll = RollD20(hit.offense, mitigation);
 
 	// +0.5 for rounding, min to 1 dmg
 	hit.damage_done = std::max(static_cast<int>(roll * static_cast<double>(hit.base_damage) + 0.5), 1);
-
-	Log(Logs::Detail, Logs::Attack, "mitigation %d vs offense %d. base %d rolled %f damage %d", mitigation, hit.offense, hit.base_damage, roll, hit.damage_done);
+	LogAttackDetail("MeleeMitigation(): mitigation [{}] vs offense [{}], base [{}], rolled [{}], damage [{}]", mitigation, hit.offense, hit.base_damage, roll, hit.damage_done);
 }
 
 //Returns the weapon damage against the input mob
@@ -1379,8 +1394,8 @@ void Mob::DoAttack(Mob *other, DamageHitInfo &hit, ExtraAttackOptions *opts)
 {
 	if (!other)
 		return;
-	LogCombat("[{}]::DoAttack vs [{}] base [{}] min [{}] offense [{}] tohit [{}] skill [{}]", GetName(),
-		other->GetName(), hit.base_damage, hit.min_damage, hit.offense, hit.tohit, hit.skill);
+	LogCombat("[{}]::DoAttack vs [{}] base [{}] min [{}] offense [{}] tohit [{}] skill [{}], damage_done [{}]", GetName(),
+		other->GetName(), hit.base_damage, hit.min_damage, hit.offense, hit.tohit, hit.skill, hit.damage_done);
 
 	// check to see if we hit..
 	if (other->AvoidDamage(this, hit)) {
@@ -1417,7 +1432,8 @@ void Mob::DoAttack(Mob *other, DamageHitInfo &hit, ExtraAttackOptions *opts)
 			}
 			other->MeleeMitigation(this, hit, opts);
 			if (hit.damage_done > 0) {
-				ApplyDamageTable(hit);
+				if (IsClient() && other->IsClient() && !CastToClient()->IsSitting())
+					ApplyDamageTable(hit);
 				CommonOutgoingHitSuccess(other, hit, opts);
 			}
 			LogCombat("Final damage after all reductions: [{}]", hit.damage_done);
@@ -1560,7 +1576,7 @@ bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, b
 
 		// damage = mod_client_damage(damage, skillinuse, Hand, weapon, other);
 
-		LogCombat("Damage calculated: base [{}] min damage [{}] skill [{}]", my_hit.base_damage, my_hit.min_damage, my_hit.skill);
+		LogCombat("Damage calculated: base [{}] min damage [{}] skill [{}]", my_hit.base_damage, my_hit.min_damage, my_hit.skill, my_hit.damage_done);
 
 		int hit_chance_bonus = 0;
 		my_hit.offense = offense(my_hit.skill); // we need this a few times
@@ -1573,6 +1589,9 @@ bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, b
 			hate += opts->hate_flat;
 			hit_chance_bonus += opts->hit_chance;
 		}
+
+		if (IsClient() && other->CastToClient()->IsClient())
+			hit_chance_bonus += RuleI(PVP, HitChanceBonusAttack);
 
 		my_hit.tohit = GetTotalToHit(my_hit.skill, hit_chance_bonus);
 
@@ -1588,7 +1607,7 @@ bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, b
 	other->AddToHateList(this, hate);
 
 	//Guard Assist Code
-	if (RuleB(Character, PVPEnableGuardFactionAssist)) {
+	if (RuleB(PVP, EnableGuardFactionAssist)) {
 		if (IsClient() && other->IsClient() || (HasOwner() && GetOwner()->IsClient() && other->IsClient() )) {
 			auto& mob_list = entity_list.GetCloseMobList(other);
 			for (auto& e : mob_list) {
@@ -1667,14 +1686,14 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
 	//patch notes on PVP reductions only mention archery/throwing ... not normal dmg
 	if (((other && other->IsClient() && (other != this)) || (iBuffTic && buffslot >= 0)) && damage > 0)
 	{
-		int PvPMitigation = RuleI(World, PVPMeleeMitigation);
+		int PvPMitigation = RuleI(PVP, MeleeMitigation);
  		if (attack_skill == EQ::skills::SkillAbjuration ||  //spells
  			attack_skill == EQ::skills::SkillAlteration ||
  			attack_skill == EQ::skills::SkillDivination ||
 			attack_skill == EQ::skills::SkillConjuration ||
- 			attack_skill == EQ::skills::SkillEvocation) PvPMitigation = RuleI(World, PVPSpellMitigation);
+ 			attack_skill == EQ::skills::SkillEvocation) PvPMitigation = RuleI(PVP, SpellMitigation);
  		if (attack_skill == EQ::skills::SkillArchery ||  //ranged
- 			attack_skill == EQ::skills::SkillThrowing) PvPMitigation = RuleI(World, PVPRangedMitigation);
+ 			attack_skill == EQ::skills::SkillThrowing) PvPMitigation = RuleI(PVP, RangedMitigation);
 
 		damage = std::max((damage * PvPMitigation) / 100, 1);
 	}
@@ -1849,8 +1868,8 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			if (accountcount == 0)
 				pvp_points = CalculatePVPPoints(killerMob->CastToClient(), victim);
 
-			if (pvp_points > RuleI(World, PVPPointsCap))
-				pvp_points = RuleI(World, PVPPointsCap);
+			if (pvp_points > RuleI(PVP, PointsCap))
+				pvp_points = RuleI(PVP, PointsCap);
 
 			LogDebug("Client::Death(): accountcount [{}], pvp_points [{}]", accountcount, pvp_points);
 
@@ -1940,10 +1959,10 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 		{
 			LogCombat("killer mob is client [{}]", killerMob->GetName());
 			int pvpleveldifference = 0;
-			//if (RuleI(World, PVPSettings) == 4)
+			//if (RuleI(PVP, Settings) == 4)
 				//pvpleveldifference = 5; //Sullon Zek
-			if (RuleI(World, PVPLoseExperienceLevelDifference) > 0)
-				pvpleveldifference = RuleI(World, PVPLoseExperienceLevelDifference);
+			if (RuleI(PVP, LoseExperienceLevelDifference) > 0)
+				pvpleveldifference = RuleI(PVP, LoseExperienceLevelDifference);
 
 			if (pvpleveldifference > 0) {
 
@@ -2015,7 +2034,7 @@ bool Client::Death(Mob* killerMob, int32 damage, uint16 spell, EQ::skills::Skill
 			// creating the corpse takes the cash/items off the player too
 			auto new_corpse = new Corpse(this, exploss);
 
-			if (killerMob != nullptr && killerMob->IsClient() && RuleB(Character, PVPCanLootCoin)) {
+			if (killerMob != nullptr && killerMob->IsClient() && RuleB(PVP, CanLootCoin)) {
 				if (killerMob->CastToClient()->isgrouped) {
 					Group* group = entity_list.GetGroupByClient(killerMob->CastToClient());
 					if (group != 0)
@@ -2231,7 +2250,7 @@ bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 	}
 
 	//Guard Assist Code
-	if (RuleB(Character, PVPEnableGuardFactionAssist)) {
+	if (RuleB(PVP, EnableGuardFactionAssist)) {
 		if (IsClient() && other->IsClient() || (HasOwner() && GetOwner()->IsClient() && other->IsClient())) {
 			auto& mob_list = entity_list.GetCloseMobList(other);
 			for (auto& e : mob_list) {
@@ -2315,7 +2334,7 @@ bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 		other->AddToHateList(this, hate);
 
 		if (other->IsClient() && IsPet() && GetOwner()->IsClient()) {
-			my_hit.damage_done = std::max(my_hit.damage_done * RuleI(World, PVPPetDamageMitigation) / 100, 0);
+			my_hit.damage_done = std::max(my_hit.damage_done * RuleI(PVP, PetDamageMitigation) / 100, 0);
 		}
 
 		LogCombat("Final damage against [{}]: [{}]", other->GetName(), my_hit.damage_done);
@@ -5314,10 +5333,10 @@ bool Mob::TryRootFadeByDamage(int buffslot, Mob* attacker) {
 	if (IsDetrimentalSpell(spellbonuses.Root[SBIndex::ROOT_BUFFSLOT]) && spellbonuses.Root[SBIndex::ROOT_BUFFSLOT] != buffslot) {
 		int BreakChance = RuleI(Spells, RootBreakFromSpells);
 		if (attacker && attacker->IsClient() && IsClient()) {
-			if (RuleI(World, PVPSettings) > 0) BreakChance = 75; //All PVP servers is default 75% chance for root to break
+			if (RuleI(PVP, Settings) > 0) BreakChance = 75; //All PVP servers is default 75% chance for root to break
 
 
-			if (RuleI(Spells, PVPRootBreakFromSpells) > 0) BreakChance = RuleI(Spells, PVPRootBreakFromSpells);
+			if (RuleI(PVP, RootBreakFromSpells) > 0) BreakChance = RuleI(PVP, RootBreakFromSpells);
 		}
 
 		BreakChance -= BreakChance * buffs[spellbonuses.Root[SBIndex::ROOT_BUFFSLOT]].RootBreakChance / 100;
@@ -5523,7 +5542,16 @@ void Mob::CommonOutgoingHitSuccess(Mob* defender, DamageHitInfo &hit, ExtraAttac
 
 	int pct_damage_reduction = defender->GetSkillDmgTaken(hit.skill, opts) + defender->GetPositionalDmgTaken(this);
 
+	LogAttackDetail("CommonOutgoingHitSuccess(): pct_damage_reduction [{}]", pct_damage_reduction);
+
+	if (IsClient() && defender->IsClient() && CastToClient()->IsSitting())
+		pct_damage_reduction = 0;
+
+	LogAttackDetail("CommonOutgoingHitSuccess(): pct_damage_reduction [{}], damage_done [{}]", pct_damage_reduction, hit.damage_done);
+
 	hit.damage_done += (hit.damage_done * pct_damage_reduction / 100) + (defender->GetFcDamageAmtIncoming(this, 0, true, hit.skill)) + defender->GetPositionalDmgTakenAmt(this);
+
+	LogAttackDetail("CommonOutgoingHitSuccess(): damage_done [{}]", hit.damage_done);
 
 	if (defender->GetShielderID()) {
 		DoShieldDamageOnShielder(defender, hit.damage_done, hit.skill);

@@ -270,7 +270,7 @@ Client::Client(EQStreamInterface* ieqs)
 	InitializeMercInfo();
 	SetMerc(0);
 
-	if (RuleI(World, PVPSettings) > 0) SendPVPStats();
+	if (RuleI(PVP, Settings) > 0) SendPVPStats();
 
 	if (WorldPVPMinLevel() > 0 && level >= WorldPVPMinLevel() && m_pp.pvp == 0) SetPVP(true, false);
 
@@ -8839,7 +8839,7 @@ void Client::CheckRegionTypeChanges()
 	last_region_type = new_region;
 
 	// PVP is the only state we need to keep track of, so we can just return now for PVP servers
-	if (RuleI(World, PVPSettings) > 0)
+	if (RuleI(PVP, Settings) > 0)
 		return;
 
 	if (last_region_type == RegionTypePVP)
@@ -10100,7 +10100,7 @@ bool Client::CanPvP(Client *c) {
 	}
 
 	// Is PVP Disabled, otherwise continue with pvp checks
-	if(RuleI(World, PVPSettings) == 0)
+	if(RuleI(PVP, Settings) == 0)
 		return false;
 
 	// Is target required level for pvp
@@ -10134,21 +10134,21 @@ bool Client::CanPvP(Client *c) {
 
 bool Client::PVPLevelDifference(Client *c)
 {
-	int rule_level_diff = RuleI(World, PVPLevelDifference);
+	int rule_level_diff = RuleI(PVP, LevelDifference);
 
 	// If rule is set to anything other than 0 its custom
 	if(rule_level_diff == 0) {
-		if(RuleI(World, PVPSettings) == 1)
+		if(RuleI(PVP, Settings) == 1)
 		{
 			rule_level_diff = 4;
 		}
 		// Vallon/Tallon Zek
-		else if(RuleI(World, PVPSettings) == 2)
+		else if(RuleI(PVP, Settings) == 2)
 		{
 			rule_level_diff = 8;
 		}
 		// Sullon Zek
-		else if(RuleI(World, PVPSettings) == 4)
+		else if(RuleI(PVP, Settings) == 4)
 		{
 			LogDebug("Client::CanPvP World:PVPLevelDifference Passed, Sullon Zek Rules any level");
 			return true;
@@ -10171,7 +10171,7 @@ bool Client::PVPLevelDifference(Client *c)
 bool Client::WorldPVPUseGuildBasedPVP(Client *c)
 {
 
-	if(RuleI(World, PVPSettings) != 3)
+	if(RuleI(PVP, Settings) != 3)
 		return true;
 
 	if((GuildID() == c->GuildID()) && (IsInAGuild() && c->IsInAGuild()))
@@ -10187,7 +10187,7 @@ bool Client::WorldPVPUseGuildBasedPVP(Client *c)
 bool Client::WorldPVPUseTeamsBySizeBasedPVP(Client *c)
 {
 
-	if(RuleI(World, PVPSettings) != 2)
+	if(RuleI(PVP, Settings) != 2)
 		return true;
 
 	if(GetPVPRaceTeamBySize() == c->GetPVPRaceTeamBySize())
@@ -10203,7 +10203,7 @@ bool Client::WorldPVPUseTeamsBySizeBasedPVP(Client *c)
 bool Client::WorldPVPUseDeityBasedPVP(Client *c)
 {
 
-	if(RuleI(World, PVPSettings) != 4)
+	if(RuleI(PVP, Settings) != 4)
 		return true;
 
 	if(GetAlignment() == c->GetAlignment())
@@ -10218,12 +10218,12 @@ bool Client::WorldPVPUseDeityBasedPVP(Client *c)
 
 int Client::WorldPVPMinLevel()
 {
-	int rule_min_level = RuleI(World, PVPMinLevel);
+	int rule_min_level = RuleI(PVP, MinLevel);
 
 	// If rule is set to anything other than 0 its custom
 	if(rule_min_level == 0)
 	{
-		switch(RuleI(World, PVPSettings))
+		switch(RuleI(PVP, Settings))
 		{
 			case 1: // Rallos Zek
 				rule_min_level = 6;
@@ -10285,8 +10285,8 @@ void Client::SendPVPLeaderBoard()
 int Client::CalculatePVPPoints(Client* killer, Client* victim)
 {
 	int points, level_difference, scoring_modifier, infamy_difference;
-	int base_score = RuleI(World, PVPBaseScore);
-	int level_weight_mult = RuleI(World, PVPLevelWeightMultiplier);
+	int base_score = RuleI(PVP, BaseScore);
+	int level_weight_mult = RuleI(PVP, LevelWeightMultiplier);
 	
 	level_difference = abs(victim->GetLevel() - killer->GetLevel());
 	infamy_difference = abs((int)victim->m_pp.PVPInfamy - (int)killer->m_pp.PVPInfamy);
@@ -10312,7 +10312,7 @@ int Client::CalculatePVPPoints(Client* killer, Client* victim)
 
 	//Brynja:if there are 0 or 1 kill in the last 24 hrs, GetKillCount24Hours = 1,
 	//if 2 kills, =2.
-	if (database.GetKillCountDays(killer, victim, RuleI(World, PVPKillCountDays) > RuleI(World, PVPKillCountDaysLimit)))
+	if (database.GetKillCountDays(killer, victim, RuleI(PVP, KillCountDays) > RuleI(PVP, KillCountDaysLimit)))
 		points = 0;
 
 	if (points < 0)
@@ -10345,7 +10345,7 @@ void Client::HandlePVPKill(uint32 Points)
 	m_pp.PVPCurrentKillStreak +=1;
 	m_pp.PVPCurrentDeathStreak = 0;
 
-	if (m_pp.PVPInfamy < RuleI(World, PVPInfamyCap))
+	if (m_pp.PVPInfamy < RuleI(PVP, InfamyCap))
 		m_pp.PVPInfamy += 1; //Brynja: for now, 1 killstreak = 1 infamy
 
 	if (m_pp.PVPCurrentKillStreak > m_pp.PVPBestKillStreak)

@@ -999,7 +999,7 @@ void Corpse::MakeLootRequestPackets(Client* client, const EQApplicationPacket* a
 					loot_request_type = LootRequestType::AllowedPVPSingle;
 				else if (GetPlayerKillItem() > 1)
 					loot_request_type = LootRequestType::AllowedPVPDefined;
-				else if (RuleB(Character, PVPCanLootCoin))
+				else if (RuleB(PVP, CanLootCoin))
 					loot_request_type = LootRequestType::AllowedPVPCoin;
 			}
 		}

@@ -150,7 +150,7 @@ void Client::SendLogServer()
 	if(RuleB(Chat, EnableVoiceMacros))
 		l->enablevoicemacros = 1;
 
-	switch(RuleI(World, PVPSettings)) 
+	switch(RuleI(PVP, Settings)) 
 	{
 		case 1: // Rallos Zek
 			l->enable_pvp = 1;
@@ -171,7 +171,7 @@ void Client::SendLogServer()
 		break;
 		
 		default:
-			l->enable_pvp = RuleI(World, PVPSettings);
+			l->enable_pvp = RuleI(PVP, Settings);
 		break;
 	}
 
@@ -1693,7 +1693,7 @@ bool Client::OPCharCreate(char *name, CharCreate_Struct *cc)
 		pp.buffs[i].spellid = 0xFFFF;
 
 	/* If server is PVP by default, make all character set to it. */
-	pp.pvp = RuleI(World, PVPSettings) >= 1 ? 1 : 0;
+	pp.pvp = RuleI(PVP, Settings) >= 1 ? 1 : 0;
 
 	/* If it is an SoF Client and the SoF Start Zone rule is set, send new chars there */
 	if (m_ClientVersionBit & EQ::versions::maskSoFAndLater) {

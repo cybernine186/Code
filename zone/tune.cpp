@@ -1397,6 +1397,9 @@ bool Mob::TuneCheckHitChance(Mob* other, DamageHitInfo &hit, int avoidance_overr
 	if (accuracy == -1)
 		return true;
 
+	if (attacker->IsClient() && defender->IsClient())
+		accuracy = round(accuracy * RuleI(PVP, HitChanceBonusAttack));
+
 	// so now we roll!
 	// relevant dev quote:
 	// Then your chance to simply avoid the attack is checked (defender's avoidance roll beat the attacker's accuracy roll.)

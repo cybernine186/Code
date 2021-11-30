@@ -147,6 +147,9 @@ void Mob::DoSpecialAttackDamage(Mob *who, EQ::skills::SkillType skill, int32 bas
 	     (!IsAttackAllowed(who))))
 		return;
 
+	LogCombat("DoSpecialAttackDamage(): who [{}], skill [{}], base_damage [{}], min_damage [{}], hate_override [{}], ReuseTime [{}]",
+		who ? who->GetCleanName() : "NOONE", skill, base_damage, min_damage, hate_override, ReuseTime);
+
 	DamageHitInfo my_hit;
 	my_hit.damage_done = 1; // min 1 dmg
 	my_hit.base_damage = base_damage;
@@ -185,11 +188,16 @@ void Mob::DoSpecialAttackDamage(Mob *who, EQ::skills::SkillType skill, int32 bas
 		}
 	}
 
-	my_hit.offense = offense(my_hit.skill);
-	my_hit.tohit = GetTotalToHit(my_hit.skill, 0);
+	int chance_mod = 0;
+	if (IsClient() && who->CastToClient()->IsClient())
+		chance_mod = RuleI(PVP, HitChanceBonusSpecialAttack);
 
-	my_hit.hand = EQ::invslot::slotPrimary; // Avoid checks hand for throwing/archery exclusion, primary should
-						  // work for most
+	my_hit.offense = offense(my_hit.skill);
+	my_hit.tohit = GetTotalToHit(my_hit.skill, chance_mod);
+
+	LogCombat("DoSpecialAttackDamage(): chance_mod total [{}]", chance_mod);
+
+	my_hit.hand = EQ::invslot::slotPrimary; // Avoid checks hand for throwing/archery exclusion, primary should work for most
 	if (skill == EQ::skills::SkillThrowing || skill == EQ::skills::SkillArchery)
 		my_hit.hand = EQ::invslot::slotRange;
 
@@ -779,6 +787,9 @@ void Mob::DoArcheryAttackDmg(Mob *other, const EQ::ItemInstance *RangeWeapon, co
 		return;
 	}
 
+	LogCombat("DoArcheryAttackDmg(): other [{}], weapon_damage [{}], chance_mod [{}], focus [{}], ReuseTime [{}], range_id [{}], ammo_id [{}], AmmoSlot [{}], speed [{}]",
+		other ? other->GetCleanName() : "NOONE", weapon_damage, chance_mod, focus, ReuseTime, range_id, ammo_id, AmmoSlot, speed);
+
 	const EQ::ItemInstance *_RangeWeapon = nullptr;
 	const EQ::ItemInstance *_Ammo = nullptr;
 	const EQ::ItemData *ammo_lost = nullptr;
@@ -869,6 +880,12 @@ void Mob::DoArcheryAttackDmg(Mob *other, const EQ::ItemInstance *RangeWeapon, co
 
 		my_hit.skill = EQ::skills::SkillArchery;
 		my_hit.offense = offense(my_hit.skill);
+
+		if (IsClient() && other->CastToClient()->IsClient())
+			chance_mod += RuleI(PVP, HitChanceBonusArcheryAttack);
+
+		LogCombat("DoArcheryAttackDmg(): chance_mod total [{}]", chance_mod);
+
 		my_hit.tohit = GetTotalToHit(my_hit.skill, chance_mod);
 		my_hit.hand = EQ::invslot::slotRange;
 
@@ -1195,6 +1212,9 @@ void NPC::DoRangedAttackDmg(Mob* other, bool Launch, int16 damage_mod, int16 cha
 		return;
 	}
 
+	LogCombat("DoRangedAttackDmg(): other [{}], Launch [{}], damage_mod [{}], chance_mod [{}], skill [{}], speed [{}], IDFile [{}]",
+		other ? other->GetCleanName() : "NOONE", Launch, damage_mod, chance_mod, skill, speed, IDFile);
+
 	EQ::skills::SkillType skillInUse = static_cast<EQ::skills::SkillType>(GetRangedSkill());
 
 	if (skill != skillInUse)
@@ -1235,6 +1255,9 @@ void NPC::DoRangedAttackDmg(Mob* other, bool Launch, int16 damage_mod, int16 cha
 
 	my_hit.skill = skill;
 	my_hit.offense = offense(my_hit.skill);
+
+	LogCombat("DoRangedAttackDmg(): chance_mod total [{}]", chance_mod);
+
 	my_hit.tohit = GetTotalToHit(my_hit.skill, chance_mod);
 	my_hit.hand = EQ::invslot::slotRange;
 
@@ -1355,6 +1378,9 @@ void Mob::DoThrowingAttackDmg(Mob *other, const EQ::ItemInstance *RangeWeapon, c
 		return;
 	}
 
+	LogCombat("DoThrowingAttackDmg(): other [{}], weapon_damage [{}], chance_mod [{}], focus [{}], ReuseTime [{}], range_id [{}], AmmoSlot [{}], speed [{}]",
+		other ? other->GetCleanName() : "NOONE", weapon_damage, chance_mod, focus, ReuseTime, range_id, AmmoSlot, speed);
+
 	const EQ::ItemInstance *_RangeWeapon = nullptr;
 	const EQ::ItemData *ammo_lost = nullptr;
 
@@ -1416,6 +1442,12 @@ void Mob::DoThrowingAttackDmg(Mob *other, const EQ::ItemInstance *RangeWeapon, c
 
 		my_hit.skill = EQ::skills::SkillThrowing;
 		my_hit.offense = offense(my_hit.skill);
+
+		if (IsClient() && other->CastToClient()->IsClient())
+			chance_mod += RuleI(PVP, HitChanceBonusThrowingAttack);
+
+		LogCombat("DoThrowingAttackDmg(): chance_mod total [{}]", chance_mod);
+
 		my_hit.tohit = GetTotalToHit(my_hit.skill, chance_mod);
 		my_hit.hand = EQ::invslot::slotRange;
 
@@ -2167,6 +2199,9 @@ void Mob::DoMeleeSkillAttackDmg(Mob *other, uint16 weapon_damage, EQ::skills::Sk
 	if (!CanDoSpecialAttack(other))
 		return;
 
+	LogCombat("DoMeleeSkillAttackDmg(): other [{}], weapon_damage [{}], skillinuse [{}], chance_mod [{}], focus [{}], canRiposte [{}], ReuseTime [{}]", 
+		other ? other->GetCleanName(): "NOONE", weapon_damage, skillinuse, chance_mod, focus, CanRiposte, ReuseTime);
+
 	/*
 		For spells using skill value 98 (feral swipe ect) server sets this to 67 automatically.
 		Kayen: This is unlikely to be completely accurate but use OFFENSE skill value for these effects.
@@ -2199,6 +2234,11 @@ void Mob::DoMeleeSkillAttackDmg(Mob *other, uint16 weapon_damage, EQ::skills::Sk
 				}
 			}
 		}
+
+		if (IsClient() && other->CastToClient()->IsClient())
+			chance_mod += RuleI(PVP, HitChanceBonusSkillAttack);
+
+		LogCombat("DoMeleeSkillAttackDmg(): chance_mod total [{}]", chance_mod);
 
 		DamageHitInfo my_hit;
 		my_hit.base_damage = weapon_damage;

@@ -2134,7 +2134,7 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, ui
 	}
 
   //Guard Assist Code
-	if (RuleB(Character, PVPEnableGuardFactionAssist) && spell_target && IsDetrimentalSpell(spell_id) && spell_target != this) {
+	if (RuleB(PVP, EnableGuardFactionAssist) && spell_target && IsDetrimentalSpell(spell_id) && spell_target != this) {
 		if (IsClient() && spell_target->IsClient()|| (HasOwner() && GetOwner()->IsClient() && spell_target->IsClient())) {
 			auto& mob_list = entity_list.GetCloseMobList(spell_target);
 			for (auto& e : mob_list) {
@@ -4576,7 +4576,7 @@ bool Mob::IsImmuneToSpell(uint16 spell_id, Mob *caster)
 				AddToHateList(caster, 1,0,true,false,false,spell_id);
 			}
 			return true;
-		} else if(!RuleB(Character, PVPAllowFear) && IsClient() && caster->IsClient() && (caster->CastToClient()->GetGM() == false))
+		} else if(!RuleB(PVP, AllowFear) && IsClient() && caster->IsClient() && (caster->CastToClient()->GetGM() == false))
 		{
 			LogSpells("Mob::IsImmuneToSpell(): Clients cannot fear eachother!");
 			caster->MessageString(Chat::Red, IMMUNE_FEAR);	// need to verify message type, not in MQ2Cast for easy look up

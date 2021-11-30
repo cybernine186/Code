@@ -2064,10 +2064,10 @@ void Client::HandleRespawnFromHover(uint32 Option)
 			CalcBonuses();
 			SetHP(GetMaxHP());
 			int mana_pct = 100;
-			if (RuleI(World, PVPSettings) > 0) 
+			if (RuleI(PVP, Settings) > 0) 
 				mana_pct = 0; //All PVP servers spawn you with zero mana
-			if (RuleI(Character, PVPRespawnManaPercent) > 0)  //override mana if it's not 100%
-				mana_pct = RuleI(Character, PVPRespawnManaPercent);
+			if (RuleI(PVP, RespawnManaPercent) > 0)  //override mana if it's not 100%
+				mana_pct = RuleI(PVP, RespawnManaPercent);
 			
 			SetMana(std::max(GetMaxMana() * mana_pct / 100, 0));
 			SetEndurance(GetMaxEndurance());

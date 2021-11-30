@@ -828,8 +828,8 @@ bool Mob::CombatRange(Mob* other, float fixed_size_mod, bool aeRampage)
 	LogAggro("Range: Combat:HitBoxMod Size [{}], Mod [{}]\n", size_mod, RuleR(Combat,HitBoxMod));
 
 	if (other->IsClient() && IsClient()) { //hitbox shortening
-		size_mod = size_mod * RuleR(Combat,PVPHitBoxMod);
-		LogAggro("Range: Combat:PVPHitBoxMod Size [{}], Mod [{}]\n", size_mod, RuleR(Combat,PVPHitBoxMod));
+		size_mod = size_mod * RuleR(PVP,PVPHitBoxMod);
+		LogAggro("Range: PVP:PVPHitBoxMod Size [{}], Mod [{}]\n", size_mod, RuleR(PVP,PVPHitBoxMod));
 	}
 
 	// Melee chasing fleeing mobs is borked.  The client updates don't
@@ -905,7 +905,7 @@ bool Mob::CheckLosFN(Mob *other)
 		Result = CheckLosFN(other->GetX(), other->GetY(), other->GetZ(), other->GetSize());
 	}
 
-	if (other && other->IsClient() && IsClient() && CastToClient()->CanPvP(other->CastToClient()) && RuleB(Character, PVPIsAutoAttackAlwaysLoS)) {
+	if (other && other->IsClient() && IsClient() && CastToClient()->CanPvP(other->CastToClient()) && RuleB(PVP, IsAutoAttackAlwaysLoS)) {
 		Result = true;
 	}
 
