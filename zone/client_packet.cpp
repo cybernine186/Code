@@ -10153,7 +10153,7 @@ void Client::Handle_OP_MoveItem(const EQApplicationPacket *app)
 				itm_to ? itm_to->GetID() : 0,
 				casting_spell_id);
 			database.SetMQDetectionFlag(AccountName(), GetName(), detect, zone->GetShortName());
-			Kick("Inventory desync"); // Kick client to prevent client and server from getting out-of-sync inventory slots
+			//Kick("Inventory desync"); // Kick client to prevent client and server from getting out-of-sync inventory slots
 			return;
 		}
 	}
