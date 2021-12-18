@@ -3361,7 +3361,7 @@ void Client::Handle_OP_AutoAttack(const EQApplicationPacket *app)
 			aa_los_them_mob            = GetTarget();
 			m_AutoAttackPosition       = GetPosition();
 			m_AutoAttackTargetLocation = glm::vec3(aa_los_them_mob->GetPosition());
-			los_status                 = CheckLosFN(aa_los_them_mob);
+			los_status                 = RuleB(Combat, LOSCheckOnMelee) ? CheckLosFN(aa_los_them_mob) : true;
 			los_status_facing          = IsFacingMob(aa_los_them_mob);
 		}
 		else {

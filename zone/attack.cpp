@@ -194,12 +194,10 @@ int Mob::GetTotalToHit(EQ::skills::SkillType skill, int chance_mod)
 
 	// calculate attacker's accuracy
 	auto accuracy = compute_tohit(skill) + 10; // add 10 in case the NPC's stats are fucked
-	if (chance_mod > 0) // multiplier
-		accuracy *= chance_mod;
 
 	// Torven parsed an apparent constant of 1.2 somewhere in here * 6 / 5 looks eqmathy to me!
 	// new test clients have 121 / 100
-	accuracy = (accuracy * 121) / 100;
+	accuracy = (accuracy * (121 + chance_mod)) / 100;
 
 	// unsure on the stacking order of these effects, rather hard to parse
 	// item mod2 accuracy isn't applied to range? Theory crafting and parses back it up I guess
@@ -1009,7 +1007,7 @@ double Mob::RollD20(int offense, int mitigation)
 	return mods[index];
 }
 //SYNC WITH: tune.cpp, mob.h TuneMeleeMitigation
-void Mob::MeleeMitigation(Mob *attacker, DamageHitInfo &hit, ExtraAttackOptions *opts)
+void Mob::MeleeMitigation(Mob *attacker, DamageHitInfo &hit, ExtraAttackOptions *opts, bool max)
 {
 #ifdef LUA_EQEMU
 	bool ignoreDefault = false;
@@ -1027,10 +1025,8 @@ void Mob::MeleeMitigation(Mob *attacker, DamageHitInfo &hit, ExtraAttackOptions 
 	auto mitigation = defender->GetMitigationAC();
 	LogAttackDetail("MeleeMitigation(): mitigation [{}]", mitigation);
 
-	if (IsClient() && attacker->IsClient())
-		mitigation = mitigation * 80 / 100; // 2004 PvP changes
-
-	LogAttackDetail("MeleeMitigation(): mitigation [{}]", mitigation);
+	if (!max)
+		mitigation = mitigation * RuleI(PVP, MeleeMitigationAC) / 100; // 2004 PvP changes
 
 	if (opts) {
 		mitigation *= (1.0f - opts->armor_pen_percent);
@@ -1411,7 +1407,7 @@ void Mob::DoAttack(Mob *other, DamageHitInfo &hit, ExtraAttackOptions *opts)
 			//if (IsDead())
 			return;
 		}
-		LogCombat("Avoided/strikethrough damage with code [{}]", hit.damage_done);
+		LogCombat("DoAttack(): Avoided/strikethrough damage with code [{}]", hit.damage_done);
 	}
 
 	if (hit.damage_done >= 0) {
@@ -1430,16 +1426,21 @@ void Mob::DoAttack(Mob *other, DamageHitInfo &hit, ExtraAttackOptions *opts)
 					}
 				}
 			}
-			other->MeleeMitigation(this, hit, opts);
+
+			bool max = false;
+			if (IsClient() && other->IsClient() && other->CastToClient()->IsSitting())
+				max = true;
+
+			other->MeleeMitigation(this, hit, opts, max);
 			if (hit.damage_done > 0) {
-				if (IsClient() && other->IsClient() && !CastToClient()->IsSitting())
-					ApplyDamageTable(hit);
+				ApplyDamageTable(hit, max);
 				CommonOutgoingHitSuccess(other, hit, opts);
 			}
-			LogCombat("Final damage after all reductions: [{}]", hit.damage_done);
+
+			LogCombat("DoAttack(): Final damage after all reductions: [{}]", hit.damage_done);
 		}
 		else {
-			LogCombat("Attack missed. Damage set to 0");
+			LogCombat("DoAttack(): Attack missed. Damage set to 0");
 			hit.damage_done = 0;
 		}
 	}
@@ -1453,14 +1454,14 @@ bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, b
 {
 	if (!other) {
 		SetTarget(nullptr);
-		LogError("A null Mob object was passed to Client::Attack() for evaluation!");
+		LogError("Client::Attack(): A null Mob object was passed to Client::Attack() for evaluation!");
 		return false;
 	}
 
 	if (!GetTarget())
 		SetTarget(other);
 
-	LogCombat("Attacking [{}] with hand [{}] [{}]", other ? other->GetName() : "(nullptr)", Hand, bRiposte ? "(this is a riposte)" : "");
+	LogCombat("Client::Attack(): Attacking [{}] with hand [{}] [{}]", other ? other->GetName() : "(nullptr)", Hand, bRiposte ? "(this is a riposte)" : "");
 
 	//SetAttackTimer();
 	if (
@@ -1470,12 +1471,12 @@ bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, b
 		|| (GetHP() < 0)
 		|| (!IsAttackAllowed(other))
 		) {
-		LogCombat("Attack cancelled, invalid circumstances");
+		LogCombat("Client::Attack(): Attack cancelled, invalid circumstances");
 		return false; // Only bards can attack while casting
 	}
 
 	if (DivineAura() && !GetGM()) {//cant attack while invulnerable unless your a gm
-		LogCombat("Attack cancelled, Divine Aura is in effect");
+		LogCombat("Client::Attack(): Attack cancelled, Divine Aura is in effect");
 		MessageString(Chat::DefaultText, DIVINE_AURA_NO_ATK);	//You can't attack while invulnerable
 		return false;
 	}
@@ -1495,20 +1496,20 @@ bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, b
 
 	if (weapon != nullptr) {
 		if (!weapon->IsWeapon()) {
-			LogCombat("Attack cancelled, Item [{}] ([{}]) is not a weapon", weapon->GetItem()->Name, weapon->GetID());
+			LogCombat("Client::Attack(): Attack cancelled, Item [{}] ([{}]) is not a weapon", weapon->GetItem()->Name, weapon->GetID());
 			return(false);
 		}
-		LogCombat("Attacking with weapon: [{}] ([{}])", weapon->GetItem()->Name, weapon->GetID());
+		LogCombat("Client::Attack(): Attacking with weapon: [{}] ([{}])", weapon->GetItem()->Name, weapon->GetID());
 	}
 	else {
-		LogCombat("Attacking without a weapon");
+		LogCombat("Client::Attack(): Attacking without a weapon");
 	}
 
 	DamageHitInfo my_hit;
 	// calculate attack_skill and skillinuse depending on hand and weapon
 	// also send Packet to near clients
 	my_hit.skill = AttackAnimation(Hand, weapon);
-	LogCombat("Attacking with [{}] in slot [{}] using skill [{}]", weapon ? weapon->GetItem()->Name : "Fist", Hand, my_hit.skill);
+	LogCombat("Client::Attack(): Attacking with [{}] in slot [{}] using skill [{}]", weapon ? weapon->GetItem()->Name : "Fist", Hand, my_hit.skill);
 
 	// Now figure out damage
 	my_hit.damage_done = 1;
@@ -1576,7 +1577,7 @@ bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, b
 
 		// damage = mod_client_damage(damage, skillinuse, Hand, weapon, other);
 
-		LogCombat("Damage calculated: base [{}] min damage [{}] skill [{}]", my_hit.base_damage, my_hit.min_damage, my_hit.skill, my_hit.damage_done);
+		LogCombat("Client::Attack(): Damage calculated: base [{}] min damage [{}] skill [{}]", my_hit.base_damage, my_hit.min_damage, my_hit.skill, my_hit.damage_done);
 
 		int hit_chance_bonus = 0;
 		my_hit.offense = offense(my_hit.skill); // we need this a few times
@@ -1590,7 +1591,7 @@ bool Client::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, b
 			hit_chance_bonus += opts->hit_chance;
 		}
 
-		if (IsClient() && other->CastToClient()->IsClient())
+		if (IsClient() && (other->CastToClient()->IsClient() || (other->IsPet() && other->GetOwner()->IsClient())))
 			hit_chance_bonus += RuleI(PVP, HitChanceBonusAttack);
 
 		my_hit.tohit = GetTotalToHit(my_hit.skill, hit_chance_bonus);
@@ -1692,10 +1693,18 @@ void Client::Damage(Mob* other, int32 damage, uint16 spell_id, EQ::skills::Skill
  			attack_skill == EQ::skills::SkillDivination ||
 			attack_skill == EQ::skills::SkillConjuration ||
  			attack_skill == EQ::skills::SkillEvocation) PvPMitigation = RuleI(PVP, SpellMitigation);
+
  		if (attack_skill == EQ::skills::SkillArchery ||  //ranged
  			attack_skill == EQ::skills::SkillThrowing) PvPMitigation = RuleI(PVP, RangedMitigation);
 
 		damage = std::max((damage * PvPMitigation) / 100, 1);
+		LogCombat("Client::Damage(): PVP Mitigation [{}], damage [{}]", PvPMitigation, damage);
+	}
+
+	if (other && other->IsPet() && other->GetOwner()->IsClient() && (other != this) )
+	{
+		damage = std::max((damage * RuleI(PVP, PetDamageMitigation)) / 100, 1);
+		LogCombat("Client::Damage(): PVP Pet Mitigation [{}]%, damage [{}]", RuleI(PVP, PetDamageMitigation), damage);
 	}
 
 	if (!ClientFinishedLoading())
@@ -2162,7 +2171,7 @@ bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 {
 	if (!other) {
 		SetTarget(nullptr);
-		LogError("A null Mob object was passed to NPC::Attack() for evaluation!");
+		LogError("NPC::Attack(): A null Mob object was passed to NPC::Attack() for evaluation!");
 		return false;
 	}
 
@@ -2180,7 +2189,7 @@ bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 			if (other->IsClient())
 				other->CastToClient()->RemoveXTarget(this, false);
 			RemoveFromHateList(other);
-			LogCombat("I am not allowed to attack [{}]", other->GetName());
+			LogCombat("NPC::Attack(): I am not allowed to attack [{}]", other->GetName());
 		}
 		return false;
 	}
@@ -2210,10 +2219,10 @@ bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 	//We dont factor much from the weapon into the attack.
 	//Just the skill type so it doesn't look silly using punching animations and stuff while wielding weapons
 	if (weapon) {
-		LogCombat("Attacking with weapon: [{}] ([{}]) (too bad im not using it for much)", weapon->Name, weapon->ID);
+		LogCombat("NPC::Attack(): Attacking with weapon: [{}] ([{}]) (too bad im not using it for much)", weapon->Name, weapon->ID);
 
 		if (Hand == EQ::invslot::slotSecondary && !weapon->IsType1HWeapon()) {
-			LogCombat("Attack with non-weapon cancelled");
+			LogCombat("NPC::Attack(): Attack with non-weapon cancelled");
 			return false;
 		}
 
@@ -2333,11 +2342,7 @@ bool NPC::Attack(Mob* other, int Hand, bool bRiposte, bool IsStrikethrough, bool
 
 		other->AddToHateList(this, hate);
 
-		if (other->IsClient() && IsPet() && GetOwner()->IsClient()) {
-			my_hit.damage_done = std::max(my_hit.damage_done * RuleI(PVP, PetDamageMitigation) / 100, 0);
-		}
-
-		LogCombat("Final damage against [{}]: [{}]", other->GetName(), my_hit.damage_done);
+		LogCombat("NPC::Attack(): Final damage against [{}]: [{}]", other->GetName(), my_hit.damage_done);
 	}
 	else {
 		my_hit.damage_done = DMG_INVULNERABLE;
@@ -5076,7 +5081,7 @@ const DamageTable &Mob::GetDamageTable() const
 	return which[level - 50];
 }
 
-void Mob::ApplyDamageTable(DamageHitInfo &hit)
+void Mob::ApplyDamageTable(DamageHitInfo& hit, bool max)
 {
 #ifdef LUA_EQEMU
 	bool ignoreDefault = false;
@@ -5102,20 +5107,57 @@ void Mob::ApplyDamageTable(DamageHitInfo &hit)
 	if (hit.damage_done < 2)
 		return;
 
-	auto &damage_table = GetDamageTable();
+	// Do not apply damage table to kick or bash
+	if (hit.skill == EQ::skills::SkillKick ||
+		hit.skill == EQ::skills::SkillBash)
+		return;
 
-	if (zone->random.Roll(damage_table.chance))
+	auto& damage_table = GetDamageTable();
+
+	// Allow skills to bypass chance roll to guarantee the damage table is applied
+	bool roll = true;
+	if (hit.skill == EQ::skills::SkillFlyingKick ||
+		hit.skill == EQ::skills::SkillDragonPunch ||
+		hit.skill == EQ::skills::SkillEagleStrike ||
+		hit.skill == EQ::skills::SkillTigerClaw ||
+		hit.skill == EQ::skills::SkillRoundKick)
+		roll = false;
+
+	if (roll && !max && zone->random.Roll(damage_table.chance))
 		return;
 
 	int basebonus = hit.offense - damage_table.minusfactor;
 	basebonus = std::max(10, basebonus / 2);
 	int extrapercent = zone->random.Roll0(basebonus);
-	int percent = std::min(100 + extrapercent, damage_table.max_extra);
+
+	int percent;
+	if (max)
+		percent = damage_table.max_extra;
+	else
+		percent = std::min(100 + extrapercent, damage_table.max_extra);
+
+	// Prevent specific skills from going below 100
+	if (roll && percent < 100)
+		percent = 100;
+
 	hit.damage_done = (hit.damage_done * percent) / 100;
 
 	if (IsWarriorClass() && GetLevel() > 54)
 		hit.damage_done++;
-	Log(Logs::Detail, Logs::Attack, "Damage table applied %d (max %d)", percent, damage_table.max_extra);
+
+	Log(Logs::Detail, Logs::Attack, "ApplyDamageTable(): Damage table applied %d (max %d)", percent, damage_table.max_extra);
+
+	if (hit.damage_done < hit.min_damage)
+	{
+		hit.damage_done = hit.min_damage;
+		LogAttackDetail("ApplyDamageTable(): damage_done less than min_damage, setting damage_done [{}]",  hit.damage_done);
+	}
+
+	if (hit.max_damage > 0 && hit.damage_done > hit.max_damage)
+	{
+		hit.damage_done = hit.max_damage;
+		LogAttackDetail("ApplyDamageTable(): damage_done greater than max_damage, setting damage_done [{}]", hit.max_damage);
+	}
 }
 
 void Mob::TrySkillProc(Mob *on, uint16 skill, uint16 ReuseTime, bool Success, uint16 hand, bool IsDefensive)
@@ -5486,17 +5528,23 @@ void Mob::CommonOutgoingHitSuccess(Mob* defender, DamageHitInfo &hit, ExtraAttac
 
 	// worn item +skill dmg, SPA 220, 418. Live has a normalized version that should be here too
 	hit.min_damage += GetSkillDmgAmt(hit.skill) + GetPositionalDmgAmt(defender);
+	LogAttackDetail("CommonOutgoingHitSuccess(): GetSkillDmgAmt [{}], GetPositionalDmgAmt [{}], damage_done [{}]", GetSkillDmgAmt(hit.skill), GetPositionalDmgAmt(defender), hit.damage_done);
 
 	// shielding mod2
 	if (defender->itembonuses.MeleeMitigation)
 		hit.min_damage -= hit.min_damage * defender->itembonuses.MeleeMitigation / 100;
+	LogAttackDetail("CommonOutgoingHitSuccess(): min_damage [{}], MeleeMitigation [{}]", hit.min_damage, defender->itembonuses.MeleeMitigation / 100);
 
 	ApplyMeleeDamageMods(hit.skill, hit.damage_done, defender, opts);
+	LogAttackDetail("CommonOutgoingHitSuccess(): min_damage [{}], damage_done [{}]", hit.min_damage, hit.damage_done);
+
 	min_mod = std::max(min_mod, extra_mincap);
 	if (min_mod && hit.damage_done < min_mod) // SPA 186
 		hit.damage_done = min_mod;
 
 	TryCriticalHit(defender, hit, opts);
+
+	LogAttackDetail("CommonOutgoingHitSuccess(): min_damage [{}], damage_done [{}]", hit.min_damage, hit.damage_done);
 
 	hit.damage_done += hit.min_damage;
 	if (IsClient()) {

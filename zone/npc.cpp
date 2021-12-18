@@ -852,7 +852,8 @@ bool NPC::Process()
 		 */
 		npc_regen = std::max(npc_hp_regen, ooc_regen_calc);
 
-		if ((GetHP() < GetMaxHP()) && !IsPet()) {
+		if ((GetHP() < GetMaxHP()) && !IsPet())
+		{
 			if (!IsEngaged()) {
 				SetHP(GetHP() + npc_regen + npc_sitting_regen_bonus);
 			}
@@ -860,9 +861,16 @@ bool NPC::Process()
 				SetHP(GetHP() + npc_hp_regen);
 			}
 		}
-		else if (GetHP() < GetMaxHP() && GetOwnerID() != 0) {
-			if (!IsEngaged()) {
-				if (ooc_regen > 0) {
+		else if (GetHP() < GetMaxHP() && GetOwnerID() != 0)
+		{
+			if (!IsEngaged())
+			{
+				if (RuleB(Pets, LegacyRegen))
+				{
+					pet_regen_bonus = npc_hp_regen;
+				}
+				else if (ooc_regen > 0)
+				{
 					pet_regen_bonus = std::max(ooc_regen_calc, npc_hp_regen);
 				}
 				else {

@@ -889,6 +889,7 @@ struct DamageHitInfo {
 	//uint16 defender; // id
 	int base_damage;
 	int min_damage;
+	int max_damage;
 	int damage_done;
 	int offense;
 	int tohit;

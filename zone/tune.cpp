@@ -939,6 +939,9 @@ int Mob::TuneClientAttack(Mob* other, bool no_avoid, bool no_hit_chance, int hit
 		}
 		my_hit.hand = Hand;
 
+		if (IsClient() && other->CastToClient()->IsClient())
+			hit_chance_bonus += RuleI(PVP, HitChanceBonusAttack);
+
 		my_hit.tohit = TuneGetTotalToHit(my_hit.skill, hit_chance_bonus, accuracy_override, add_accuracy);
 		if (get_accuracy) {
 			return my_hit.tohit;
@@ -1007,8 +1010,9 @@ void Mob::TuneMeleeMitigation(Mob *attacker, DamageHitInfo &hit, int ac_override
 	Mob* defender = this;
 	//auto mitigation = defender->GetMitigationAC();
 	auto mitigation = defender->TuneACSum(false, ac_override, add_ac);
+
 	if (IsClient() && attacker->IsClient())
-		mitigation = mitigation * 80 / 100; // 2004 PvP changes
+		mitigation = mitigation * RuleI(PVP, MeleeMitigationAC) / 100; // 2004 PvP changes
 
 	auto roll = RollD20(hit.offense, mitigation);
 
@@ -1258,12 +1262,10 @@ int Mob::TuneGetTotalToHit(EQ::skills::SkillType skill, int chance_mod, int accu
 
 	// calculate attacker's accuracy
 	auto accuracy = Tunecompute_tohit(skill, accuracy_override, add_accuracy) + 10; // add 10 in case the NPC's stats are fucked
-	if (chance_mod > 0) // multiplier
-		accuracy *= chance_mod;
 
 	// Torven parsed an apparent constant of 1.2 somewhere in here * 6 / 5 looks eqmathy to me!
 	// new test clients have 121 / 100
-	accuracy = (accuracy * 121) / 100;
+	accuracy = (accuracy * (121 + chance_mod)) / 100;
 
 	// unsure on the stacking order of these effects, rather hard to parse
 	// item mod2 accuracy isn't applied to range? Theory crafting and parses back it up I guess
