@@ -3760,10 +3760,14 @@ bool Mob::SpellOnTarget(uint16 spell_id, Mob *spelltar, int reflect_effectivenes
 	}
 
 	// invuln mobs can't be affected by any spells, good or bad
-	if(spelltar->GetInvul() || spelltar->DivineAura()) {
-		LogSpells("Mob::SpellOnTarget(): Casting spell [{}], on [{}], aborted: they are invulnerable", spell_id, spelltar->GetName());
-		safe_delete(action_packet);
-		return false;
+	if(spelltar->GetInvul() || spelltar->DivineAura())
+	{
+		if (spell_id != SPELL_CAZIC_TOUCH && spell_id != SPELL_TOUCH_OF_VINITRAS)
+		{
+			LogSpells("Mob::SpellOnTarget(): Casting spell [{}], on [{}], aborted: they are invulnerable", spell_id, spelltar->GetName());
+			safe_delete(action_packet);
+			return false;
+		}
 	}
 
 	//cannot hurt untargetable mobs
