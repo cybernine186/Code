@@ -1220,6 +1220,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 		return;
 	ClientZoneEntry_Struct *cze = (ClientZoneEntry_Struct *)app->pBuffer;
 
+	cze->char_name[63] = '\0'; // stop potential strlen() heap buffer overread crash if client sends non-null terminated string
 	if (strlen(cze->char_name) > 63)
 		return;
 
@@ -1669,6 +1670,17 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	memcpy(outapp->pBuffer, &m_pp, outapp->size);
 	outapp->priority = 6;
 	FastQueuePacket(&outapp);
+	
+	/// naez TODO: reset HP with OP_PlayerProfile instead
+	auto flop_client_packet     = new EQApplicationPacket(OP_HPUpdate, sizeof(SpawnHPUpdate_Struct));
+	auto *hp_flop_packet_client = (SpawnHPUpdate_Struct *) flop_client_packet->pBuffer;
+
+	hp_flop_packet_client->cur_hp = std::min(GetHP(), 2147483646);
+	hp_flop_packet_client->spawn_id = GetID();
+	hp_flop_packet_client->max_hp   = std::min(GetMaxHP(), 2147483646);
+
+	FastQueuePacket(&outapp);
+	/// naez TODONT
 
 	if (m_pp.RestTimer)
 		rest_timer.Start(m_pp.RestTimer * 1000);
